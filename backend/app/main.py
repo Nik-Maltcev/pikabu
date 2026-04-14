@@ -33,6 +33,17 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+@app.on_event("startup")
+async def on_startup():
+    """Create database tables if they don't exist."""
+    from app.database import engine
+    from app.models.database import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables ensured.")
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
