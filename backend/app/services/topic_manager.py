@@ -25,7 +25,7 @@ FALLBACK_COMMUNITIES = [
     {"pikabu_id": "history", "name": "История", "url": "https://pikabu.ru/community/history", "subscribers_count": None},
     {"pikabu_id": "serials", "name": "Кино и сериалы", "url": "https://pikabu.ru/community/serials", "subscribers_count": None},
     {"pikabu_id": "sport", "name": "Спорт", "url": "https://pikabu.ru/community/sport", "subscribers_count": None},
-    {"pikabu_id": "cat", "name": "Котики", "url": "https://pikabu.ru/community/cat", "subscribers_count": None},
+    {"pikabu_id": "zoo", "name": "Животные", "url": "https://pikabu.ru/community/zoo", "subscribers_count": None},
     {"pikabu_id": "eda", "name": "Еда", "url": "https://pikabu.ru/community/eda", "subscribers_count": None},
     {"pikabu_id": "music", "name": "Музыка", "url": "https://pikabu.ru/community/music", "subscribers_count": None},
     {"pikabu_id": "travel", "name": "Путешествия", "url": "https://pikabu.ru/community/travel", "subscribers_count": None},
