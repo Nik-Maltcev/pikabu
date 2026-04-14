@@ -115,83 +115,88 @@ class ParserService:
         return all_posts
 
     async def parse_comments(self, post_url: str) -> list[dict]:
-        """Fetch comments via pikabu's AJAX endpoint.
+        """Fetch comments via pikabu's XML comments endpoint.
 
-        Pikabu loads comments via JavaScript, so we use their internal
-        AJAX endpoint to get comments as HTML fragments.
-        Falls back to page HTML parsing if AJAX fails.
+        Uses generate_xml_comm.php which returns all comments as XML.
+        Falls back to page HTML parsing if XML endpoint fails.
 
         Returns a list of dicts with keys:
         body, published_at, rating, pikabu_comment_id
         """
-        # Extract story ID from URL (e.g. "..._13880945" -> "13880945")
-        story_id = post_url.rstrip("/").split("_")[-1]
-        if not story_id.isdigit():
-            # Fallback: try to get from page
+        # Extract story ID from URL (last number after underscore)
+        import re
+        match = re.search(r'_(\d+)$', post_url.rstrip("/"))
+        if not match:
             html = await self._fetch_page(post_url)
             return self._extract_comments_from_html(html)
 
+        story_id = match.group(1)
+
         try:
-            comments = await self._fetch_comments_ajax(story_id)
+            comments = await self._fetch_comments_xml(story_id)
             if comments:
+                logger.info("Got %d comments via XML for story %s", len(comments), story_id)
                 return comments
         except Exception as exc:
-            logger.warning("AJAX comments failed for story %s: %s", story_id, exc)
+            logger.warning("XML comments failed for story %s: %s", story_id, exc)
 
         # Fallback to page HTML
         html = await self._fetch_page(post_url)
         return self._extract_comments_from_html(html)
 
-    async def _fetch_comments_ajax(self, story_id: str) -> list[dict]:
-        """Fetch comments using pikabu's internal AJAX endpoint."""
+    async def _fetch_comments_xml(self, story_id: str) -> list[dict]:
+        """Fetch comments using pikabu's XML endpoint."""
+        import xml.etree.ElementTree as ET
+
         proxy = settings.pikabu_proxy_url or None
         async with httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
             proxy=proxy,
-            headers={
-                "User-Agent": USER_AGENT,
-                "X-Requested-With": "XMLHttpRequest",
-                "Accept": "application/json, text/javascript, */*",
-                "Referer": f"https://pikabu.ru/story/_{story_id}",
-            },
+            headers={"User-Agent": USER_AGENT},
         ) as client:
-            # Try the comments page with ?page=comments to get server-rendered comments
             response = await client.get(
-                f"https://pikabu.ru/story/_{story_id}",
-                params={"page": "comments", "tpl": "comments"},
+                f"https://pikabu.ru/generate_xml_comm.php?id={story_id}"
             )
             response.raise_for_status()
 
-            # Try to parse as JSON first
-            try:
-                data = response.json()
-                if isinstance(data, dict) and "comments" in data:
-                    return self._parse_comments_json(data["comments"])
-            except (ValueError, KeyError):
-                pass
+        root = ET.fromstring(response.text)
+        comments: list[dict] = []
 
-            # Parse as HTML
-            return self._extract_comments_from_html(response.text)
-
-    @staticmethod
-    def _parse_comments_json(comments_data: list) -> list[dict]:
-        """Parse comments from JSON API response."""
-        result = []
-        for c in comments_data:
-            body = c.get("body", "") or c.get("text", "") or ""
-            if not body.strip():
+        for elem in root.findall("comment"):
+            body_raw = elem.text or ""
+            # Strip HTML tags from CDATA content
+            body_soup = BeautifulSoup(body_raw, "html.parser")
+            body = body_soup.get_text(strip=True)
+            if not body:
                 continue
-            comment_id = str(c.get("id", "") or c.get("comment_id", ""))
+
+            comment_id = elem.attrib.get("id", "")
             if not comment_id:
                 continue
-            result.append({
-                "pikabu_comment_id": comment_id,
-                "body": body.strip(),
-                "published_at": datetime.now(timezone.utc),
-                "rating": int(c.get("rating", 0) or 0),
+
+            # Parse date
+            date_str = elem.attrib.get("date", "")
+            try:
+                published_at = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+                published_at = published_at.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                published_at = datetime.now(timezone.utc)
+
+            rating = 0
+            try:
+                rating = int(elem.attrib.get("rating", "0"))
+            except (ValueError, TypeError):
+                pass
+
+            comments.append({
+                "pikabu_comment_id": str(comment_id),
+                "body": body,
+                "published_at": published_at,
+                "rating": rating,
             })
-        return result
+
+        return comments
 
     # ------------------------------------------------------------------
     # HTML parsing (static, testable without HTTP)
