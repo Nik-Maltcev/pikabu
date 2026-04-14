@@ -35,13 +35,21 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def on_startup():
-    """Create database tables if they don't exist."""
-    from app.database import engine
-    from app.models.database import Base
+    """Create database tables and refresh topic cache."""
+    from sqlalchemy import delete
+
+    from app.database import async_session, engine
+    from app.models.database import Base, Topic
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables ensured.")
+
+    # Clear topic cache so fallback list reloads with correct URLs
+    async with async_session() as session:
+        await session.execute(delete(Topic))
+        await session.commit()
+    logger.info("Topic cache cleared.")
 
 
 @app.get("/health")
