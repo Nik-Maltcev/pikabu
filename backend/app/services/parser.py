@@ -117,11 +117,50 @@ class ParserService:
     async def parse_comments(self, post_url: str) -> list[dict]:
         """Fetch and parse comments from a post page.
 
+        Uses Playwright (headless browser) to render JavaScript and load all comments.
+        Falls back to simple HTTP fetch if Playwright is unavailable.
+
         Returns a list of dicts with keys:
         body, published_at, rating, pikabu_comment_id
         """
-        html = await self._fetch_page(post_url)
+        try:
+            html = await self._fetch_page_with_browser(post_url)
+        except Exception as exc:
+            logger.warning("Playwright failed for %s: %s — falling back to HTTP", post_url, exc)
+            html = await self._fetch_page(post_url)
         return self._extract_comments_from_html(html)
+
+    async def _fetch_page_with_browser(self, url: str) -> str:
+        """Fetch a page using Playwright headless browser to render JS."""
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page(
+                user_agent=USER_AGENT,
+            )
+            await page.goto(url, wait_until="networkidle", timeout=60000)
+
+            # Scroll down to trigger lazy-loaded comments
+            for _ in range(5):
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(1000)
+
+            # Click "show more comments" buttons if they exist
+            for _ in range(10):
+                try:
+                    btn = page.locator(".comments__more-button, .comment__more, [data-role='comments-more']").first
+                    if await btn.is_visible(timeout=1000):
+                        await btn.click()
+                        await page.wait_for_timeout(1500)
+                    else:
+                        break
+                except Exception:
+                    break
+
+            html = await page.content()
+            await browser.close()
+            return html
 
     # ------------------------------------------------------------------
     # HTML parsing (static, testable without HTTP)
