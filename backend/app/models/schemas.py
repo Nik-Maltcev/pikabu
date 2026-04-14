@@ -59,6 +59,7 @@ class AnalysisStartRequest(BaseModel):
     """Request to start analysis for a topic."""
 
     topic_id: int
+    days: int = 30  # 7, 14, or 30
 
 
 class AnalysisStartResponse(BaseModel):

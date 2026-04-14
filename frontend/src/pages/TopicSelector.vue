@@ -9,6 +9,7 @@ const router = useRouter()
 const topics = ref<Topic[]>([])
 const searchQuery = ref('')
 const selectedTopic = ref<Topic | null>(null)
+const selectedDays = ref(30)
 const loading = ref(false)
 const analyzing = ref(false)
 const error = ref('')
@@ -44,7 +45,7 @@ async function onStartAnalysis() {
   analyzing.value = true
   error.value = ''
   try {
-    const res = await startAnalysis(selectedTopic.value.id)
+    const res = await startAnalysis(selectedTopic.value.id, selectedDays.value)
     router.push({ name: 'analysis', params: { taskId: res.task_id }, query: { topicId: String(selectedTopic.value.id) } })
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
@@ -127,6 +128,21 @@ onMounted(() => loadTopics())
             <p>Выберите тему из списка слева, чтобы увидеть подробности</p>
           </div>
         </template>
+
+        <div class="ts-period">
+          <label class="ts-period-label">Период анализа:</label>
+          <div class="ts-period-buttons">
+            <button
+              v-for="d in [7, 14, 30]"
+              :key="d"
+              class="ts-period-btn"
+              :class="{ 'ts-period-btn--active': selectedDays === d }"
+              @click="selectedDays = d"
+            >
+              {{ d }} дней
+            </button>
+          </div>
+        </div>
 
         <button
           class="ts-btn"
@@ -401,5 +417,49 @@ onMounted(() => loadTopics())
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Period selector */
+.ts-period {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ts-period-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.ts-period-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.ts-period-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-h);
+  font-size: 14px;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ts-period-btn:hover {
+  background: var(--accent-bg);
+}
+
+.ts-period-btn--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.ts-period-btn--active:hover {
+  opacity: 0.9;
 }
 </style>

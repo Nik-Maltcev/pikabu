@@ -130,6 +130,7 @@ async def run_full_analysis(
     topic_id: int,
     session: AsyncSession,
     *,
+    days: int = 30,
     parser_service: ParserService | None = None,
     cache_service: CacheService | None = None,
     analyzer_service: AnalyzerService | None = None,
@@ -186,7 +187,7 @@ async def run_full_analysis(
             async def _parse_progress(stage: str, percent: int) -> None:
                 await _update_task(session, task, current_stage=stage, progress_percent=min(percent, 30))
 
-            await parser.parse_topic(topic_id, callback=_parse_progress)
+            await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
 
         # 4. Chunk data
         await _update_task(

@@ -89,6 +89,10 @@ async def start_analysis(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
+    # Validate days
+    if request.days not in (7, 14, 30):
+        raise HTTPException(status_code=400, detail="days must be 7, 14, or 30")
+
     # Check for already running analysis
     try:
         # Create the task record first so we can return its id
@@ -99,7 +103,7 @@ async def start_analysis(
 
         # Launch background analysis (uses its own session)
         asyncio.create_task(
-            _run_analysis_background(request.topic_id, task_id)
+            _run_analysis_background(request.topic_id, task_id, request.days)
         )
 
         await session.commit()
@@ -186,7 +190,7 @@ async def get_report(
     return _report_to_schema(report)
 
 
-async def _run_analysis_background(topic_id: int, task_id: UUID) -> None:
+async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30) -> None:
     """Run the full analysis pipeline in the background.
 
     Creates its own DB session so the request session can be closed.
@@ -204,7 +208,7 @@ async def _run_analysis_background(topic_id: int, task_id: UUID) -> None:
                 logger.error("Background task %s not found in DB", task_id)
                 return
 
-            await run_full_analysis(topic_id, session)
+            await run_full_analysis(topic_id, session, days=days)
             await session.commit()
     except AnalysisAlreadyRunningError:
         logger.info("Analysis already running for topic %s, skipping", topic_id)

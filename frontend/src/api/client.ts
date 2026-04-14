@@ -21,9 +21,10 @@ export async function getTopics(search?: string): Promise<TopicListResponse> {
   return data
 }
 
-export async function startAnalysis(topicId: number): Promise<AnalysisStartResponse> {
+export async function startAnalysis(topicId: number, days: number = 30): Promise<AnalysisStartResponse> {
   const { data } = await api.post<AnalysisStartResponse>('/analysis/start', {
     topic_id: topicId,
+    days,
   })
   return data
 }

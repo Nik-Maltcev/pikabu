@@ -44,8 +44,9 @@ class ParserService:
         self,
         topic_id: int,
         callback: ProgressCallback = None,
+        days: int = 30,
     ) -> dict:
-        """Parse all posts for a topic from the last 30 days.
+        """Parse all posts for a topic from the last N days.
 
         Returns a dict with keys: posts_count, comments_count.
         """
@@ -56,7 +57,7 @@ class ParserService:
         if callback:
             await callback("parsing", 0)
 
-        since = datetime.now(timezone.utc) - timedelta(days=30)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         posts_data = await self.parse_posts(topic.url, since)
 
         total_posts = len(posts_data)
