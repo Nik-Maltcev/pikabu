@@ -115,52 +115,83 @@ class ParserService:
         return all_posts
 
     async def parse_comments(self, post_url: str) -> list[dict]:
-        """Fetch and parse comments from a post page.
+        """Fetch comments via pikabu's AJAX endpoint.
 
-        Uses Playwright (headless browser) to render JavaScript and load all comments.
-        Falls back to simple HTTP fetch if Playwright is unavailable.
+        Pikabu loads comments via JavaScript, so we use their internal
+        AJAX endpoint to get comments as HTML fragments.
+        Falls back to page HTML parsing if AJAX fails.
 
         Returns a list of dicts with keys:
         body, published_at, rating, pikabu_comment_id
         """
-        try:
-            html = await self._fetch_page_with_browser(post_url)
-        except Exception as exc:
-            logger.warning("Playwright failed for %s: %s — falling back to HTTP", post_url, exc)
+        # Extract story ID from URL (e.g. "..._13880945" -> "13880945")
+        story_id = post_url.rstrip("/").split("_")[-1]
+        if not story_id.isdigit():
+            # Fallback: try to get from page
             html = await self._fetch_page(post_url)
+            return self._extract_comments_from_html(html)
+
+        try:
+            comments = await self._fetch_comments_ajax(story_id)
+            if comments:
+                return comments
+        except Exception as exc:
+            logger.warning("AJAX comments failed for story %s: %s", story_id, exc)
+
+        # Fallback to page HTML
+        html = await self._fetch_page(post_url)
         return self._extract_comments_from_html(html)
 
-    async def _fetch_page_with_browser(self, url: str) -> str:
-        """Fetch a page using Playwright headless browser to render JS."""
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page(
-                user_agent=USER_AGENT,
+    async def _fetch_comments_ajax(self, story_id: str) -> list[dict]:
+        """Fetch comments using pikabu's internal AJAX endpoint."""
+        proxy = settings.pikabu_proxy_url or None
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            proxy=proxy,
+            headers={
+                "User-Agent": USER_AGENT,
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json, text/javascript, */*",
+                "Referer": f"https://pikabu.ru/story/_{story_id}",
+            },
+        ) as client:
+            # Try the comments page with ?page=comments to get server-rendered comments
+            response = await client.get(
+                f"https://pikabu.ru/story/_{story_id}",
+                params={"page": "comments", "tpl": "comments"},
             )
-            await page.goto(url, wait_until="networkidle", timeout=60000)
+            response.raise_for_status()
 
-            # Scroll down to trigger lazy-loaded comments
-            for _ in range(5):
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await page.wait_for_timeout(1000)
+            # Try to parse as JSON first
+            try:
+                data = response.json()
+                if isinstance(data, dict) and "comments" in data:
+                    return self._parse_comments_json(data["comments"])
+            except (ValueError, KeyError):
+                pass
 
-            # Click "show more comments" buttons if they exist
-            for _ in range(10):
-                try:
-                    btn = page.locator(".comments__more-button, .comment__more, [data-role='comments-more']").first
-                    if await btn.is_visible(timeout=1000):
-                        await btn.click()
-                        await page.wait_for_timeout(1500)
-                    else:
-                        break
-                except Exception:
-                    break
+            # Parse as HTML
+            return self._extract_comments_from_html(response.text)
 
-            html = await page.content()
-            await browser.close()
-            return html
+    @staticmethod
+    def _parse_comments_json(comments_data: list) -> list[dict]:
+        """Parse comments from JSON API response."""
+        result = []
+        for c in comments_data:
+            body = c.get("body", "") or c.get("text", "") or ""
+            if not body.strip():
+                continue
+            comment_id = str(c.get("id", "") or c.get("comment_id", ""))
+            if not comment_id:
+                continue
+            result.append({
+                "pikabu_comment_id": comment_id,
+                "body": body.strip(),
+                "published_at": datetime.now(timezone.utc),
+                "rating": int(c.get("rating", 0) or 0),
+            })
+        return result
 
     # ------------------------------------------------------------------
     # HTML parsing (static, testable without HTTP)

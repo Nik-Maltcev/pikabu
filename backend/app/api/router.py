@@ -221,17 +221,15 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
             partial_results: list[PartialResult] = []
 
             try:
-                # Cache check → parse if needed
-                cache_valid = await cache.is_cache_valid(topic_id)
-                if not cache_valid:
-                    await _update_task(session, task, status="parsing", current_stage="Парсинг данных с Pikabu...", progress_percent=0)
+                # Always parse fresh data (no cache)
+                await _update_task(session, task, status="parsing", current_stage="Парсинг данных с Pikabu...", progress_percent=0)
+                await session.flush()
+
+                async def _parse_progress(stage: str, percent: int) -> None:
+                    await _update_task(session, task, current_stage="Парсинг данных с Pikabu...", progress_percent=min(percent, 30))
                     await session.flush()
 
-                    async def _parse_progress(stage: str, percent: int) -> None:
-                        await _update_task(session, task, current_stage="Парсинг данных с Pikabu...", progress_percent=min(percent, 30))
-                        await session.flush()
-
-                    await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
+                await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
 
                 # Chunk data
                 await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных...", progress_percent=30)
