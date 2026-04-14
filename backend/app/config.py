@@ -7,8 +7,15 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/pikabu_analyzer"
 
-    # Google Gemini API
+    # Google Gemini API (legacy)
     gemini_api_key: str = ""
+
+    # LLM settings (Qwen via DashScope OpenAI-compatible API)
+    llm_api_key: str = ""  # DashScope API key
+    llm_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    llm_model: str = "qwen-plus"
+    llm_max_retries: int = 3
+    llm_context_window: int = 131_072  # Qwen Plus: 131K tokens
 
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
@@ -22,7 +29,7 @@ class Settings(BaseSettings):
     pikabu_retry_count_5xx: int = 3
     pikabu_retry_delay_5xx: int = 10
 
-    # Gemini API
+    # Gemini API (legacy, kept for backward compat)
     gemini_max_retries: int = 3
     gemini_context_window: int = 1_000_000
 
