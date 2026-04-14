@@ -20,7 +20,7 @@ async function loadTopics(search?: string) {
   error.value = ''
   try {
     const res = await getTopics(search || undefined)
-    topics.value = res.topics
+    topics.value = res?.topics ?? []
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить список тем'
   } finally {
