@@ -82,6 +82,7 @@ class TopicManager:
 
         raw_topics = await self._scrape_communities()
         await self._upsert_topics(raw_topics)
+        await self._session.commit()
         return await self._all_topics()
 
     async def get_topic_info(self, topic_id: int) -> Topic | None:
