@@ -1,0 +1,465 @@
+"""ParserService — parses posts and comments from pikabu.ru."""
+
+import asyncio
+import logging
+from datetime import datetime, timezone, timedelta
+from typing import Callable, Awaitable
+
+import httpx
+from bs4 import BeautifulSoup, Tag
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.models.database import Post, Comment, ParseMetadata, Topic
+
+logger = logging.getLogger(__name__)
+
+# Type alias for progress callbacks
+ProgressCallback = Callable[[str, int], Awaitable[None]] | None
+
+PIKABU_BASE_URL = "https://pikabu.ru"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
+
+
+class ParserError(Exception):
+    """Base error for ParserService operations."""
+
+
+class ParserService:
+    """Parses posts and comments from pikabu.ru for a given topic."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def parse_topic(
+        self,
+        topic_id: int,
+        callback: ProgressCallback = None,
+    ) -> dict:
+        """Parse all posts for a topic from the last 30 days.
+
+        Returns a dict with keys: posts_count, comments_count.
+        """
+        topic = await self._get_topic(topic_id)
+        if topic is None:
+            raise ParserError(f"Тема с id={topic_id} не найдена")
+
+        if callback:
+            await callback("parsing", 0)
+
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        posts_data = await self.parse_posts(topic.url, since)
+
+        total_posts = len(posts_data)
+        total_comments = 0
+
+        for i, post_data in enumerate(posts_data):
+            # Save post to DB
+            db_post = await self._save_post(topic_id, post_data)
+
+            # Parse and save comments for this post
+            comments_data = await self.parse_comments(post_data["url"])
+            for comment_data in comments_data:
+                await self._save_comment(db_post.id, comment_data)
+            total_comments += len(comments_data)
+
+            if callback:
+                progress = int(((i + 1) / total_posts) * 100) if total_posts > 0 else 100
+                await callback("parsing", progress)
+
+        # Update parse metadata
+        await self._update_parse_metadata(topic_id, total_posts, total_comments)
+        await self._session.flush()
+
+        return {"posts_count": total_posts, "comments_count": total_comments}
+
+    async def parse_posts(self, topic_url: str, since: datetime) -> list[dict]:
+        """Fetch and parse posts from a topic page, filtering to last 30 days.
+
+        Returns a list of dicts with keys:
+        title, body, published_at, rating, comments_count, url, pikabu_post_id
+        """
+        all_posts: list[dict] = []
+        page = 1
+
+        while True:
+            page_url = f"{topic_url}?page={page}" if page > 1 else topic_url
+            html = await self._fetch_page(page_url)
+            posts = self._extract_posts_from_html(html)
+
+            if not posts:
+                break
+
+            found_old = False
+            for post in posts:
+                if post["published_at"] >= since:
+                    all_posts.append(post)
+                else:
+                    found_old = True
+
+            if found_old:
+                break
+
+            page += 1
+
+        return all_posts
+
+    async def parse_comments(self, post_url: str) -> list[dict]:
+        """Fetch and parse comments from a post page.
+
+        Returns a list of dicts with keys:
+        body, published_at, rating, pikabu_comment_id
+        """
+        html = await self._fetch_page(post_url)
+        return self._extract_comments_from_html(html)
+
+    # ------------------------------------------------------------------
+    # HTML parsing (static, testable without HTTP)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_posts_from_html(html: str) -> list[dict]:
+        """Extract post data from a topic page HTML."""
+        soup = BeautifulSoup(html, "html.parser")
+        posts: list[dict] = []
+
+        story_items = soup.select("article.story, div.story, [data-story-id]")
+
+        for item in story_items:
+            try:
+                post = ParserService._parse_single_post(item)
+                if post is not None:
+                    posts.append(post)
+            except Exception:
+                logger.warning("Failed to parse post element, skipping", exc_info=True)
+                continue
+
+        return posts
+
+    @staticmethod
+    def _parse_single_post(item: Tag) -> dict | None:
+        """Parse a single post element into a dict."""
+        # Title
+        title_el = item.select_one(
+            ".story__title-link, .story__title a, a.story__title-link"
+        )
+        if title_el is None:
+            return None
+        title = title_el.get_text(strip=True)
+
+        # URL
+        href = title_el.get("href", "")
+        url = href if href.startswith("http") else f"{PIKABU_BASE_URL}{href}"
+
+        # Post ID
+        pikabu_post_id = (
+            item.get("data-story-id", "")
+            or url.rstrip("/").split("/")[-1]
+            or ""
+        )
+        if not pikabu_post_id:
+            return None
+
+        # Body
+        body_el = item.select_one(
+            ".story__content-inner, .story__text, .story-block__text"
+        )
+        body = body_el.get_text(strip=True) if body_el else ""
+
+        # Published date
+        time_el = item.select_one("time[datetime], .story__datetime")
+        published_at = _parse_datetime(time_el)
+
+        # Rating
+        rating_el = item.select_one(
+            ".story__rating-count, .story__rating .score, [data-rating]"
+        )
+        rating = _parse_int(rating_el, attr="data-rating")
+
+        # Comments count
+        comments_el = item.select_one(
+            ".story__comments-count, .story__comments a"
+        )
+        comments_count = _parse_int(comments_el)
+
+        return {
+            "pikabu_post_id": str(pikabu_post_id),
+            "title": title,
+            "body": body,
+            "published_at": published_at,
+            "rating": rating,
+            "comments_count": comments_count,
+            "url": url,
+        }
+
+    @staticmethod
+    def _extract_comments_from_html(html: str) -> list[dict]:
+        """Extract comment data from a post page HTML."""
+        soup = BeautifulSoup(html, "html.parser")
+        comments: list[dict] = []
+
+        comment_items = soup.select(
+            ".comment, div.comment, [data-comment-id]"
+        )
+
+        for item in comment_items:
+            try:
+                comment = ParserService._parse_single_comment(item)
+                if comment is not None:
+                    comments.append(comment)
+            except Exception:
+                logger.warning("Failed to parse comment element, skipping", exc_info=True)
+                continue
+
+        return comments
+
+    @staticmethod
+    def _parse_single_comment(item: Tag) -> dict | None:
+        """Parse a single comment element into a dict."""
+        # Comment ID
+        pikabu_comment_id = item.get("data-comment-id", "")
+        if not pikabu_comment_id:
+            id_el = item.get("id", "")
+            pikabu_comment_id = id_el.replace("comment_", "") if id_el else ""
+        if not pikabu_comment_id:
+            return None
+
+        # Body
+        body_el = item.select_one(
+            ".comment__content, .comment__text, .comment-content__text"
+        )
+        if body_el is None:
+            return None
+        body = body_el.get_text(strip=True)
+        if not body:
+            return None
+
+        # Published date
+        time_el = item.select_one("time[datetime], .comment__datetime")
+        published_at = _parse_datetime(time_el)
+
+        # Rating
+        rating_el = item.select_one(
+            ".comment__rating-count, .comment__rating .score, [data-rating]"
+        )
+        rating = _parse_int(rating_el, attr="data-rating")
+
+        return {
+            "pikabu_comment_id": str(pikabu_comment_id),
+            "body": body,
+            "published_at": published_at,
+            "rating": rating,
+        }
+
+    # ------------------------------------------------------------------
+    # HTTP fetching with retry logic
+    # ------------------------------------------------------------------
+
+    async def _fetch_page(self, url: str) -> str:
+        """Fetch a single page with retry logic.
+
+        - HTTP 429: wait ``settings.pikabu_retry_delay_429`` seconds, then retry (indefinitely).
+        - HTTP 5xx: retry up to ``settings.pikabu_retry_count_5xx`` times with
+          ``settings.pikabu_retry_delay_5xx`` seconds between attempts.
+        - Network errors (``httpx.RequestError``): raise ``ParserError`` immediately
+          so the caller can save already-collected data and report a partial result.
+        """
+        retries_5xx = 0
+
+        while True:
+            try:
+                proxy = settings.pikabu_proxy_url or None
+                async with httpx.AsyncClient(
+                    timeout=30.0,
+                    follow_redirects=True,
+                    headers={"User-Agent": USER_AGENT},
+                    proxy=proxy,
+                ) as client:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    return response.text
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+
+                if status == 429:
+                    logger.warning(
+                        "HTTP 429 fetching %s — pausing %s s",
+                        url,
+                        settings.pikabu_retry_delay_429,
+                    )
+                    await asyncio.sleep(settings.pikabu_retry_delay_429)
+                    continue
+
+                if 500 <= status < 600:
+                    retries_5xx += 1
+                    if retries_5xx <= settings.pikabu_retry_count_5xx:
+                        logger.warning(
+                            "HTTP %s fetching %s — retry %s/%s in %s s",
+                            status,
+                            url,
+                            retries_5xx,
+                            settings.pikabu_retry_count_5xx,
+                            settings.pikabu_retry_delay_5xx,
+                        )
+                        await asyncio.sleep(settings.pikabu_retry_delay_5xx)
+                        continue
+
+                    logger.error(
+                        "HTTP %s fetching %s — exhausted %s retries",
+                        status,
+                        url,
+                        settings.pikabu_retry_count_5xx,
+                    )
+
+                logger.error("HTTP %s fetching %s", status, url)
+                raise ParserError(
+                    f"HTTP {status} при загрузке {url}"
+                ) from exc
+
+            except httpx.RequestError as exc:
+                logger.error("Network error fetching %s: %s", url, exc)
+                raise ParserError(
+                    f"Сетевая ошибка при загрузке {url}: {exc}"
+                ) from exc
+
+    # ------------------------------------------------------------------
+    # DB helpers
+    # ------------------------------------------------------------------
+
+    async def _get_topic(self, topic_id: int) -> Topic | None:
+        result = await self._session.execute(
+            select(Topic).where(Topic.id == topic_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _save_post(self, topic_id: int, post_data: dict) -> Post:
+        """Insert or update a post in the database. Returns the Post object."""
+        result = await self._session.execute(
+            select(Post).where(Post.pikabu_post_id == post_data["pikabu_post_id"])
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.title = post_data["title"]
+            existing.body = post_data["body"]
+            existing.published_at = post_data["published_at"]
+            existing.rating = post_data["rating"]
+            existing.comments_count = post_data["comments_count"]
+            existing.url = post_data["url"]
+            await self._session.flush()
+            return existing
+
+        post = Post(
+            topic_id=topic_id,
+            pikabu_post_id=post_data["pikabu_post_id"],
+            title=post_data["title"],
+            body=post_data["body"],
+            published_at=post_data["published_at"],
+            rating=post_data["rating"],
+            comments_count=post_data["comments_count"],
+            url=post_data["url"],
+        )
+        self._session.add(post)
+        await self._session.flush()
+        return post
+
+    async def _save_comment(self, post_id: int, comment_data: dict) -> Comment:
+        """Insert or update a comment in the database."""
+        result = await self._session.execute(
+            select(Comment).where(
+                Comment.pikabu_comment_id == comment_data["pikabu_comment_id"]
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            existing.body = comment_data["body"]
+            existing.published_at = comment_data["published_at"]
+            existing.rating = comment_data["rating"]
+            await self._session.flush()
+            return existing
+
+        comment = Comment(
+            post_id=post_id,
+            pikabu_comment_id=comment_data["pikabu_comment_id"],
+            body=comment_data["body"],
+            published_at=comment_data["published_at"],
+            rating=comment_data["rating"],
+        )
+        self._session.add(comment)
+        await self._session.flush()
+        return comment
+
+    async def _update_parse_metadata(
+        self, topic_id: int, posts_count: int, comments_count: int
+    ) -> None:
+        """Update or create parse metadata for the topic."""
+        result = await self._session.execute(
+            select(ParseMetadata).where(ParseMetadata.topic_id == topic_id)
+        )
+        existing = result.scalar_one_or_none()
+        now = datetime.now(timezone.utc)
+
+        if existing:
+            existing.last_parsed_at = now
+            existing.posts_count = posts_count
+            existing.comments_count = comments_count
+        else:
+            meta = ParseMetadata(
+                topic_id=topic_id,
+                last_parsed_at=now,
+                posts_count=posts_count,
+                comments_count=comments_count,
+            )
+            self._session.add(meta)
+
+
+# ------------------------------------------------------------------
+# Module-level helpers
+# ------------------------------------------------------------------
+
+
+def _parse_datetime(el: Tag | None) -> datetime:
+    """Extract a datetime from a <time> element or return now(UTC)."""
+    if el is None:
+        return datetime.now(timezone.utc)
+
+    dt_str = el.get("datetime", "") if isinstance(el, Tag) else ""
+    if dt_str:
+        try:
+            return datetime.fromisoformat(str(dt_str))
+        except (ValueError, TypeError):
+            pass
+
+    return datetime.now(timezone.utc)
+
+
+def _parse_int(el: Tag | None, attr: str | None = None) -> int:
+    """Extract an integer from an element's text or attribute."""
+    if el is None:
+        return 0
+
+    raw = ""
+    if attr:
+        raw = str(el.get(attr, ""))
+    if not raw:
+        raw = el.get_text(strip=True)
+
+    # Remove non-digit chars except minus sign
+    cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == "-")
+    if not cleaned or cleaned == "-":
+        return 0
+    try:
+        return int(cleaned)
+    except ValueError:
+        return 0
