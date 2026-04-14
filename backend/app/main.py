@@ -14,6 +14,8 @@ logger.info("Starting Pikabu Topic Analyzer...")
 logger.info("PORT=%s", os.environ.get("PORT", "not set"))
 logger.info("DATABASE_URL=%s", "***" if settings.database_url else "not set")
 
+logger.info("CORS_ORIGINS=%s", settings.cors_origins_list)
+
 app = FastAPI(
     title="Pikabu Topic Analyzer",
     description="API для анализа контента pikabu.ru по выбранной теме",
@@ -22,7 +24,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

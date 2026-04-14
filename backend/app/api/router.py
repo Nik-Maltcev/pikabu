@@ -64,11 +64,15 @@ async def get_topics(
     session: AsyncSession = Depends(get_session),
 ) -> TopicListResponse:
     """Return the list of available Pikabu topics, optionally filtered by search."""
-    tm = TopicManager(session)
-    topics = await tm.fetch_topics()
-    if search:
-        topics = TopicManager.filter_topics(topics, search)
-    return TopicListResponse(topics=[_topic_to_schema(t) for t in topics])
+    try:
+        tm = TopicManager(session)
+        topics = await tm.fetch_topics()
+        if search:
+            topics = TopicManager.filter_topics(topics, search)
+        return TopicListResponse(topics=[_topic_to_schema(t) for t in topics])
+    except Exception as exc:
+        logger.exception("Error fetching topics: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/analysis/start", response_model=AnalysisStartResponse)
