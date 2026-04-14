@@ -194,12 +194,19 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
     """Run the full analysis pipeline in the background.
 
     Creates its own DB session so the request session can be closed.
+    Uses the task already created by the router endpoint.
     """
     from app.database import async_session
+    from app.services.analyzer import AnalyzerError, AnalyzerService
+    from app.services.cache import CacheService
+    from app.services.chunker import chunk_data
+    from app.services.parser import ParserError, ParserService
+    from app.models.database import PartialResult as DBPartialResult, Post, Report as DBReport
+    from app.models.schemas import PartialResult
+    from app.services.pipeline import _update_task, _load_posts_as_dicts, _save_partial_result_to_db
 
     try:
         async with async_session() as session:
-            # Re-load the task we already created
             result = await session.execute(
                 select(AnalysisTask).where(AnalysisTask.id == task_id)
             )
@@ -208,9 +215,81 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                 logger.error("Background task %s not found in DB", task_id)
                 return
 
-            await run_full_analysis(topic_id, session, days=days)
-            await session.commit()
-    except AnalysisAlreadyRunningError:
-        logger.info("Analysis already running for topic %s, skipping", topic_id)
+            parser = ParserService(session)
+            cache = CacheService(session)
+            analyzer = AnalyzerService()
+            partial_results: list[PartialResult] = []
+
+            try:
+                # Cache check → parse if needed
+                cache_valid = await cache.is_cache_valid(topic_id)
+                if not cache_valid:
+                    await _update_task(session, task, status="parsing", current_stage="Парсинг данных с Pikabu...", progress_percent=0)
+                    await session.flush()
+
+                    async def _parse_progress(stage: str, percent: int) -> None:
+                        await _update_task(session, task, current_stage="Парсинг данных с Pikabu...", progress_percent=min(percent, 30))
+                        await session.flush()
+
+                    await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
+
+                # Chunk data
+                await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных...", progress_percent=30)
+                await session.flush()
+
+                posts_data = await _load_posts_as_dicts(session, topic_id)
+                chunks = chunk_data(posts_data)
+                total_chunks = len(chunks)
+                await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
+                await session.flush()
+
+                # Analyze each chunk
+                for i, chunk in enumerate(chunks):
+                    pr = await analyzer.analyze_chunk(chunk)
+                    partial_results.append(pr)
+                    _save_partial_result_to_db(session, task.id, pr)
+                    await session.flush()
+
+                    processed = i + 1
+                    chunk_progress = 30 + int((processed / max(total_chunks, 1)) * 50)
+                    await _update_task(
+                        session, task,
+                        processed_chunks=processed,
+                        progress_percent=min(chunk_progress, 80),
+                        current_stage=f"Анализ чанка {processed} из {total_chunks}...",
+                    )
+                    await session.flush()
+
+                # Aggregate
+                await _update_task(session, task, status="aggregating", current_stage="Агрегация результатов...", progress_percent=80)
+                await session.flush()
+
+                report_data = await analyzer.hierarchical_aggregate(partial_results)
+
+                # Save report
+                from datetime import datetime, timezone
+                hot_topics = report_data.get("hot_topics", [])
+                user_problems = report_data.get("user_problems", [])
+                trending = report_data.get("trending_discussions", [])
+
+                db_report = DBReport(
+                    topic_id=topic_id,
+                    task_id=task.id,
+                    hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
+                    user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
+                    trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
+                    generated_at=datetime.now(timezone.utc),
+                )
+                session.add(db_report)
+                await session.flush()
+
+                await _update_task(session, task, status="completed", current_stage="Анализ завершён!", progress_percent=100)
+                await session.commit()
+
+            except Exception as exc:
+                logger.error("Pipeline failed for topic %s: %s", topic_id, exc, exc_info=True)
+                await _update_task(session, task, status="failed", current_stage="Ошибка", error_message=str(exc))
+                await session.commit()
+
     except Exception:
         logger.exception("Background analysis failed for topic %s", topic_id)

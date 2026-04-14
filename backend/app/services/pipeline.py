@@ -41,7 +41,7 @@ async def _get_active_task(session: AsyncSession, topic_id: int) -> AnalysisTask
             AnalysisTask.status.in_(ACTIVE_STATUSES),
         )
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def _update_task(
