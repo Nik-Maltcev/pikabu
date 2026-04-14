@@ -47,13 +47,13 @@ def chunk_data(
     Args:
         posts: List of post dicts (each may contain nested comments).
         max_tokens: Maximum tokens per chunk. Defaults to 80% of
-            settings.gemini_context_window.
+            settings.llm_context_window.
 
     Returns:
         List of Chunk objects covering all input posts without loss or duplication.
     """
     if max_tokens is None:
-        max_tokens = int(settings.gemini_context_window * 0.8)
+        max_tokens = int(settings.llm_context_window * 0.8)
 
     if not posts:
         return []

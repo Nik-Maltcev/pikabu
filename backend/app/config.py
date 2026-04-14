@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     llm_model: str = "qwen-plus"
     llm_max_retries: int = 3
-    llm_context_window: int = 131_072  # Qwen Plus: 131K tokens
+    llm_context_window: int = 100_000  # Max tokens per chunk (conservative limit for API)
 
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000"

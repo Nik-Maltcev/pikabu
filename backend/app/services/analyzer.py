@@ -151,6 +151,7 @@ class AnalyzerService:
 
     async def _call_llm(self, prompt: str) -> str:
         """Call the LLM API and return the response text."""
+        logger.info("LLM request: model=%s, prompt_len=%d chars, ~%d tokens", self.model, len(prompt), len(prompt) // 4)
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
@@ -164,6 +165,8 @@ class AnalyzerService:
                     "temperature": 0.3,
                 },
             )
+            if response.status_code != 200:
+                logger.error("LLM response %d: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"]

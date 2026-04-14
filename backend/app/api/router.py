@@ -238,6 +238,9 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                 posts_data = await _load_posts_as_dicts(session, topic_id)
                 chunks = chunk_data(posts_data)
                 total_chunks = len(chunks)
+                logger.info("Topic %s: %d posts, %d chunks", topic_id, len(posts_data), total_chunks)
+                for c in chunks:
+                    logger.info("  Chunk %d: %d posts, ~%d tokens", c.index, len(c.posts_data), c.estimated_tokens)
                 await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
                 await session.flush()
 
