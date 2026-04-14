@@ -363,6 +363,7 @@ class ParserService:
           so the caller can save already-collected data and report a partial result.
         """
         retries_5xx = 0
+        retries_429 = 0
 
         while True:
             try:
@@ -381,10 +382,15 @@ class ParserService:
                 status = exc.response.status_code
 
                 if status == 429:
+                    retries_429 += 1
+                    if retries_429 > 5:
+                        logger.error("HTTP 429 fetching %s — exhausted 5 retries", url)
+                        raise ParserError(f"Pikabu rate limit: слишком много запросов к {url}") from exc
                     logger.warning(
-                        "HTTP 429 fetching %s — pausing %s s",
+                        "HTTP 429 fetching %s — pausing %s s (attempt %d/5)",
                         url,
                         settings.pikabu_retry_delay_429,
+                        retries_429,
                     )
                     await asyncio.sleep(settings.pikabu_retry_delay_429)
                     continue
