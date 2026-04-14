@@ -77,6 +77,9 @@ class ParserService:
                 progress = int(((i + 1) / total_posts) * 100) if total_posts > 0 else 100
                 await callback("parsing", progress)
 
+            # Delay between posts to avoid 429 rate limiting
+            await asyncio.sleep(1.5)
+
         # Update parse metadata
         await self._update_parse_metadata(topic_id, total_posts, total_comments)
         await self._session.flush()
@@ -145,20 +148,30 @@ class ParserService:
         return self._extract_comments_from_html(html)
 
     async def _fetch_comments_xml(self, story_id: str) -> list[dict]:
-        """Fetch comments using pikabu's XML endpoint."""
+        """Fetch comments using pikabu's XML endpoint with retry on 429."""
         import xml.etree.ElementTree as ET
 
         proxy = settings.pikabu_proxy_url or None
-        async with httpx.AsyncClient(
-            timeout=30.0,
-            follow_redirects=True,
-            proxy=proxy,
-            headers={"User-Agent": USER_AGENT},
-        ) as client:
-            response = await client.get(
-                f"https://pikabu.ru/generate_xml_comm.php?id={story_id}"
-            )
-            response.raise_for_status()
+
+        for attempt in range(3):
+            async with httpx.AsyncClient(
+                timeout=30.0,
+                follow_redirects=True,
+                proxy=proxy,
+                headers={"User-Agent": USER_AGENT},
+            ) as client:
+                response = await client.get(
+                    f"https://pikabu.ru/generate_xml_comm.php?id={story_id}"
+                )
+                if response.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    logger.warning("429 on XML comments for story %s, waiting %ds", story_id, wait)
+                    await asyncio.sleep(wait)
+                    continue
+                response.raise_for_status()
+                break
+        else:
+            return []
 
         root = ET.fromstring(response.text)
         comments: list[dict] = []

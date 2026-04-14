@@ -221,19 +221,22 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
             partial_results: list[PartialResult] = []
 
             try:
-                # Always parse fresh data (no cache)
-                await _update_task(session, task, status="parsing", current_stage="Парсинг данных с Pikabu...", progress_percent=0)
-                await session.flush()
+                # Phase 1: Parsing (0% → 50%)
+                await _update_task(session, task, status="parsing", current_stage="Загрузка постов с Pikabu...", progress_percent=0)
+                await session.commit()
 
                 async def _parse_progress(stage: str, percent: int) -> None:
-                    await _update_task(session, task, current_stage="Парсинг данных с Pikabu...", progress_percent=min(percent, 30))
-                    await session.flush()
+                    # Map 0-100% parsing progress to 0-50% overall
+                    overall = int(percent * 0.5)
+                    post_info = f"Загрузка постов и комментариев... {percent}%"
+                    await _update_task(session, task, current_stage=post_info, progress_percent=overall)
+                    await session.commit()
 
                 await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
 
-                # Chunk data
-                await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных...", progress_percent=30)
-                await session.flush()
+                # Phase 2: Chunking + Analysis (50% → 85%)
+                await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных для анализа...", progress_percent=50)
+                await session.commit()
 
                 posts_data = await _load_posts_as_dicts(session, topic_id)
                 chunks = chunk_data(posts_data)
@@ -242,28 +245,29 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                 for c in chunks:
                     logger.info("  Chunk %d: %d posts, ~%d tokens", c.index, len(c.posts_data), c.estimated_tokens)
                 await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
-                await session.flush()
+                await session.commit()
 
                 # Analyze each chunk
                 for i, chunk in enumerate(chunks):
                     pr = await analyzer.analyze_chunk(chunk)
                     partial_results.append(pr)
                     _save_partial_result_to_db(session, task.id, pr)
-                    await session.flush()
+                    await session.commit()
 
                     processed = i + 1
-                    chunk_progress = 30 + int((processed / max(total_chunks, 1)) * 50)
+                    # Map chunk progress to 50-85% overall
+                    chunk_progress = 50 + int((processed / max(total_chunks, 1)) * 35)
                     await _update_task(
                         session, task,
                         processed_chunks=processed,
-                        progress_percent=min(chunk_progress, 80),
-                        current_stage=f"Анализ чанка {processed} из {total_chunks}...",
+                        progress_percent=min(chunk_progress, 85),
+                        current_stage=f"AI-анализ: чанк {processed} из {total_chunks}...",
                     )
-                    await session.flush()
+                    await session.commit()
 
-                # Aggregate
-                await _update_task(session, task, status="aggregating", current_stage="Агрегация результатов...", progress_percent=80)
-                await session.flush()
+                # Phase 3: Aggregation (85% → 100%)
+                await _update_task(session, task, status="aggregating", current_stage="Формирование итогового отчёта...", progress_percent=85)
+                await session.commit()
 
                 report_data = await analyzer.hierarchical_aggregate(partial_results)
 
@@ -282,7 +286,7 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                     generated_at=datetime.now(timezone.utc),
                 )
                 session.add(db_report)
-                await session.flush()
+                await session.commit()
 
                 await _update_task(session, task, status="completed", current_stage="Анализ завершён!", progress_percent=100)
                 await session.commit()
