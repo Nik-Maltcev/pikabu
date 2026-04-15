@@ -163,6 +163,7 @@ class AnalyzerService:
                     "model": self.model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.3,
+                    "max_tokens": 16384,
                 },
             )
             if response.status_code != 200:
