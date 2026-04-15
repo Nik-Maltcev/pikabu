@@ -133,7 +133,6 @@ class ParserService:
                 break
 
             logger.info("Page %d done, all posts fresh. Total so far: %d. Moving to page %d", page, len(all_posts), page + 1)
-                break
 
             page += 1
 
