@@ -126,8 +126,13 @@ class ParserService:
                     all_posts.append(post)
                 else:
                     found_old = True
+                    logger.info("Old post found: %s date=%s (since=%s)", post["pikabu_post_id"], post["published_at"], since)
 
             if found_old:
+                logger.info("Stopping pagination: found old post on page %d. Total posts: %d", page, len(all_posts))
+                break
+
+            logger.info("Page %d done, all posts fresh. Total so far: %d. Moving to page %d", page, len(all_posts), page + 1)
                 break
 
             page += 1
@@ -237,13 +242,24 @@ class ParserService:
         """Extract post data from a topic page HTML."""
         soup = BeautifulSoup(html, "html.parser")
         posts: list[dict] = []
+        seen_ids: set[str] = set()
 
         story_items = soup.select("article.story, div.story, [data-story-id]")
 
         for item in story_items:
             try:
+                # Deduplicate by data-story-id
+                story_id = item.get("data-story-id", "")
+                if story_id and story_id in seen_ids:
+                    continue
+
                 post = ParserService._parse_single_post(item)
                 if post is not None:
+                    if post["pikabu_post_id"] in seen_ids:
+                        continue
+                    seen_ids.add(post["pikabu_post_id"])
+                    if story_id:
+                        seen_ids.add(story_id)
                     posts.append(post)
             except Exception:
                 logger.warning("Failed to parse post element, skipping", exc_info=True)
