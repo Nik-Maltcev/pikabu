@@ -121,18 +121,21 @@ class ParserService:
                 break
 
             found_old = False
+            fresh_on_page = 0
             for post in posts:
                 if post["published_at"] >= since:
                     all_posts.append(post)
+                    fresh_on_page += 1
                 else:
                     found_old = True
-                    logger.info("Old post found: %s date=%s (since=%s)", post["pikabu_post_id"], post["published_at"], since)
+                    logger.info("Old post skipped: %s date=%s", post["pikabu_post_id"], post["published_at"])
 
-            if found_old:
-                logger.info("Stopping pagination: found old post on page %d. Total posts: %d", page, len(all_posts))
+            # Stop only when ALL posts on page are old (no fresh ones)
+            if found_old and fresh_on_page == 0:
+                logger.info("Stopping pagination: all posts on page %d are old. Total posts: %d", page, len(all_posts))
                 break
 
-            logger.info("Page %d done, all posts fresh. Total so far: %d. Moving to page %d", page, len(all_posts), page + 1)
+            logger.info("Page %d done: %d fresh, %d old. Total so far: %d", page, fresh_on_page, len(posts) - fresh_on_page, len(all_posts))
 
             page += 1
 
