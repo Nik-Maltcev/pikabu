@@ -152,7 +152,7 @@ class AnalyzerService:
     async def _call_llm(self, prompt: str) -> str:
         """Call the LLM API and return the response text."""
         logger.info("LLM request: model=%s, prompt_len=%d chars, ~%d tokens", self.model, len(prompt), len(prompt) // 4)
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers={

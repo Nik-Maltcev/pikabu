@@ -47,6 +47,11 @@ async function fetchStatus() {
       stopPolling()
     }
   } catch (e: any) {
+    if (e?.response?.status === 404) {
+      stopPolling()
+      router.push({ name: 'topics' })
+      return
+    }
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось получить статус анализа'
   } finally {
     loading.value = false

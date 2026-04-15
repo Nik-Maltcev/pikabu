@@ -489,6 +489,11 @@ class ParserService:
             existing.rating = post_data["rating"]
             existing.comments_count = post_data["comments_count"]
             existing.url = post_data["url"]
+            # Delete old comments so they get replaced with fresh ones
+            from sqlalchemy import delete
+            await self._session.execute(
+                delete(Comment).where(Comment.post_id == existing.id)
+            )
             await self._session.flush()
             return existing
 
