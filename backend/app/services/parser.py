@@ -98,7 +98,9 @@ class ParserService:
         while True:
             page_url = f"{topic_url}?page={page}" if page > 1 else topic_url
             html = await self._fetch_page(page_url)
+            logger.info("Page %d: %d chars HTML", page, len(html))
             posts = self._extract_posts_from_html(html)
+            logger.info("Page %d: %d posts extracted", page, len(posts))
 
             if not posts:
                 break
