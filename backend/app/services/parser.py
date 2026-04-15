@@ -82,18 +82,21 @@ class ParserService:
             # Save post to DB
             db_post = await self._save_post(topic_id, post_data)
 
-            # Parse and save comments for this post
-            comments_data = await self.parse_comments(post_data["url"])
-            for comment_data in comments_data:
-                await self._save_comment(db_post.id, comment_data)
-            total_comments += len(comments_data)
+            # Parse and save comments for this post (skip on error, don't crash)
+            try:
+                comments_data = await self.parse_comments(post_data["url"])
+                for comment_data in comments_data:
+                    await self._save_comment(db_post.id, comment_data)
+                total_comments += len(comments_data)
+            except Exception as exc:
+                logger.warning("Skipping comments for post %s: %s", post_data.get("pikabu_post_id", "?"), exc)
 
             if callback:
                 progress = int(((i + 1) / total_posts) * 100) if total_posts > 0 else 100
                 await callback("parsing", progress)
 
             # Delay between posts to avoid 429 rate limiting
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(3)
 
         # Update parse metadata
         await self._update_parse_metadata(topic_id, total_posts, total_comments)
