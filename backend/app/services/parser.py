@@ -415,10 +415,11 @@ class ParserService:
         - HTTP 429: wait ``settings.pikabu_retry_delay_429`` seconds, then retry.
         - HTTP 5xx: retry up to ``settings.pikabu_retry_count_5xx`` times with
           ``settings.pikabu_retry_delay_5xx`` seconds between attempts.
-        - Network errors: raise ``ParserError`` immediately.
+        - Network/proxy errors: retry up to 3 times with 15s delay.
         """
         retries_5xx = 0
         retries_429 = 0
+        retries_network = 0
         proxy = settings.pikabu_proxy_url or None
 
         while True:
@@ -477,12 +478,22 @@ class ParserService:
                         f"HTTP {response.status_code} при загрузке {url}"
                     )
 
+                # Reset network retry counter on success
+                retries_network = 0
                 return response.text
 
             except ParserError:
                 raise
             except Exception as exc:
-                logger.error("Network error fetching %s: %s", url, exc)
+                retries_network += 1
+                if retries_network <= 3:
+                    logger.warning(
+                        "Network error fetching %s: %s — retry %d/3 in 15s",
+                        url, exc, retries_network,
+                    )
+                    await asyncio.sleep(15)
+                    continue
+                logger.error("Network error fetching %s: %s — exhausted 3 retries", url, exc)
                 raise ParserError(
                     f"Сетевая ошибка при загрузке {url}: {exc}"
                 ) from exc

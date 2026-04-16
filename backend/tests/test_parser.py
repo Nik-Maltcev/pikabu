@@ -321,8 +321,10 @@ class TestFetchPage:
     @pytest.mark.asyncio
     async def test_network_error_raises(self, parser):
         with patch("app.services.parser.curl_requests.get", side_effect=Exception("connection refused")):
-            with pytest.raises(ParserError, match="Сетевая ошибка"):
-                await parser._fetch_page("https://pikabu.ru/test")
+            with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                with pytest.raises(ParserError, match="Сетевая ошибка"):
+                    await parser._fetch_page("https://pikabu.ru/test")
+        assert mock_sleep.await_count == 3
 
 
 # ---------------------------------------------------------------------------
@@ -427,17 +429,34 @@ class TestFetchPageRetry:
 
     @pytest.mark.asyncio
     async def test_network_error_raises_parser_error(self, parser):
-        """Network errors raise ParserError immediately (no retry)."""
+        """Network errors retry 3 times then raise ParserError."""
         with patch("app.services.parser.curl_requests.get", side_effect=Exception("connection refused")):
-            with pytest.raises(ParserError, match="Сетевая ошибка"):
-                await parser._fetch_page("https://pikabu.ru/test")
+            with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                with pytest.raises(ParserError, match="Сетевая ошибка"):
+                    await parser._fetch_page("https://pikabu.ru/test")
+        assert mock_sleep.await_count == 3
 
     @pytest.mark.asyncio
     async def test_timeout_error_raises_parser_error(self, parser):
-        """Timeout errors raise ParserError."""
+        """Timeout errors retry 3 times then raise ParserError."""
         with patch("app.services.parser.curl_requests.get", side_effect=Exception("read timed out")):
-            with pytest.raises(ParserError, match="Сетевая ошибка"):
-                await parser._fetch_page("https://pikabu.ru/test")
+            with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                with pytest.raises(ParserError, match="Сетевая ошибка"):
+                    await parser._fetch_page("https://pikabu.ru/test")
+        assert mock_sleep.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_network_error_retries_then_succeeds(self, parser):
+        """Network error on first try, success on second."""
+        responses = [
+            Exception("proxy closed"),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
+            with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                result = await parser._fetch_page("https://pikabu.ru/test")
+        assert result == "<html>OK</html>"
+        mock_sleep.assert_awaited_once_with(15)
 
     # -- Mixed scenarios -------------------------------------------------------
 
