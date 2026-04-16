@@ -295,54 +295,34 @@ class TestFetchPage:
     def parser(self):
         return ParserService(_mock_session())
 
-    def _make_response(self, status_code: int, text: str = "") -> httpx.Response:
-        return httpx.Response(
-            status_code=status_code,
-            text=text,
-            request=httpx.Request("GET", "https://pikabu.ru/test"),
-        )
-
-    def _patch_client(self, ctx):
-        """Return a context-manager patch for httpx.AsyncClient."""
-        p = patch("app.services.parser.httpx.AsyncClient")
-        mock_cls = p.start()
-        mock_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-        mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-        return p
+    @staticmethod
+    def _make_curl_response(status_code: int, text: str = ""):
+        """Create a mock curl_cffi response."""
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.text = text
+        return resp
 
     @pytest.mark.asyncio
     async def test_success(self, parser):
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(return_value=self._make_response(200, "<html>OK</html>"))
-        p = self._patch_client(ctx)
-        try:
+        resp = self._make_curl_response(200, "<html>OK</html>")
+        with patch("app.services.parser.curl_requests.get", return_value=resp):
             result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
         assert result == "<html>OK</html>"
 
     @pytest.mark.asyncio
     async def test_http_4xx_error_raises_immediately(self, parser):
         """Non-retryable client errors (e.g. 404) raise immediately."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(return_value=self._make_response(404))
-        p = self._patch_client(ctx)
-        try:
+        resp = self._make_curl_response(404)
+        with patch("app.services.parser.curl_requests.get", return_value=resp):
             with pytest.raises(ParserError, match="HTTP 404"):
                 await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
     @pytest.mark.asyncio
     async def test_network_error_raises(self, parser):
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
-        p = self._patch_client(ctx)
-        try:
+        with patch("app.services.parser.curl_requests.get", side_effect=Exception("connection refused")):
             with pytest.raises(ParserError, match="Сетевая ошибка"):
                 await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -359,38 +339,25 @@ class TestFetchPageRetry:
     def parser(self):
         return ParserService(_mock_session())
 
-    def _make_response(self, status_code: int, text: str = "") -> httpx.Response:
-        return httpx.Response(
-            status_code=status_code,
-            text=text,
-            request=httpx.Request("GET", "https://pikabu.ru/test"),
-        )
-
-    def _patch_client(self, ctx):
-        p = patch("app.services.parser.httpx.AsyncClient")
-        mock_cls = p.start()
-        mock_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
-        mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-        return p
+    @staticmethod
+    def _make_curl_response(status_code: int, text: str = ""):
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.text = text
+        return resp
 
     # -- HTTP 429 retry -------------------------------------------------------
 
     @pytest.mark.asyncio
     async def test_429_retries_then_succeeds(self, parser):
         """HTTP 429 → pause 60 s → retry → success."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[
-                self._make_response(429),
-                self._make_response(200, "<html>OK</html>"),
-            ]
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [
+            self._make_curl_response(429),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         assert result == "<html>OK</html>"
         mock_sleep.assert_awaited_once_with(60)
@@ -398,20 +365,14 @@ class TestFetchPageRetry:
     @pytest.mark.asyncio
     async def test_429_multiple_retries(self, parser):
         """Multiple consecutive 429s are all retried."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[
-                self._make_response(429),
-                self._make_response(429),
-                self._make_response(200, "<html>OK</html>"),
-            ]
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [
+            self._make_curl_response(429),
+            self._make_curl_response(429),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         assert result == "<html>OK</html>"
         assert mock_sleep.await_count == 2
@@ -422,19 +383,13 @@ class TestFetchPageRetry:
     @pytest.mark.asyncio
     async def test_5xx_retries_then_succeeds(self, parser):
         """HTTP 500 → retry with 10 s delay → success on 2nd attempt."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[
-                self._make_response(500),
-                self._make_response(200, "<html>OK</html>"),
-            ]
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [
+            self._make_curl_response(500),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         assert result == "<html>OK</html>"
         mock_sleep.assert_awaited_once_with(10)
@@ -442,17 +397,11 @@ class TestFetchPageRetry:
     @pytest.mark.asyncio
     async def test_5xx_exhausts_retries(self, parser):
         """HTTP 503 × 4 (1 initial + 3 retries) → ParserError."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[self._make_response(503)] * 4
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [self._make_curl_response(503)] * 4
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 with pytest.raises(ParserError, match="HTTP 503"):
                     await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         # 3 retries → 3 sleep calls
         assert mock_sleep.await_count == 3
@@ -461,21 +410,15 @@ class TestFetchPageRetry:
     @pytest.mark.asyncio
     async def test_5xx_succeeds_on_last_retry(self, parser):
         """HTTP 502 × 3 then success on the 4th attempt (3rd retry)."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[
-                self._make_response(502),
-                self._make_response(502),
-                self._make_response(502),
-                self._make_response(200, "<html>OK</html>"),
-            ]
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [
+            self._make_curl_response(502),
+            self._make_curl_response(502),
+            self._make_curl_response(502),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         assert result == "<html>OK</html>"
         assert mock_sleep.await_count == 3
@@ -485,48 +428,30 @@ class TestFetchPageRetry:
     @pytest.mark.asyncio
     async def test_network_error_raises_parser_error(self, parser):
         """Network errors raise ParserError immediately (no retry)."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
-        p = self._patch_client(ctx)
-        try:
+        with patch("app.services.parser.curl_requests.get", side_effect=Exception("connection refused")):
             with pytest.raises(ParserError, match="Сетевая ошибка"):
                 await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
     @pytest.mark.asyncio
     async def test_timeout_error_raises_parser_error(self, parser):
-        """Timeout errors (a subclass of RequestError) raise ParserError."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=httpx.ReadTimeout("read timed out", request=httpx.Request("GET", "https://pikabu.ru/test"))
-        )
-        p = self._patch_client(ctx)
-        try:
+        """Timeout errors raise ParserError."""
+        with patch("app.services.parser.curl_requests.get", side_effect=Exception("read timed out")):
             with pytest.raises(ParserError, match="Сетевая ошибка"):
                 await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
     # -- Mixed scenarios -------------------------------------------------------
 
     @pytest.mark.asyncio
     async def test_429_then_5xx_then_success(self, parser):
         """429 → retry → 500 → retry → success."""
-        ctx = AsyncMock()
-        ctx.get = AsyncMock(
-            side_effect=[
-                self._make_response(429),
-                self._make_response(500),
-                self._make_response(200, "<html>OK</html>"),
-            ]
-        )
-        p = self._patch_client(ctx)
-        try:
+        responses = [
+            self._make_curl_response(429),
+            self._make_curl_response(500),
+            self._make_curl_response(200, "<html>OK</html>"),
+        ]
+        with patch("app.services.parser.curl_requests.get", side_effect=responses):
             with patch("app.services.parser.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
                 result = await parser._fetch_page("https://pikabu.ru/test")
-        finally:
-            p.stop()
 
         assert result == "<html>OK</html>"
         assert mock_sleep.await_count == 2

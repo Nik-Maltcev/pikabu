@@ -7,6 +7,7 @@ from typing import Callable, Awaitable
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 import httpx
+from curl_cffi import requests as curl_requests
 from bs4 import BeautifulSoup, Tag
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,24 +182,37 @@ class ParserService:
         import xml.etree.ElementTree as ET
 
         proxy = settings.pikabu_proxy_url or None
+        url = f"https://pikabu.ru/generate_xml_comm.php?id={story_id}"
 
         for attempt in range(3):
-            async with httpx.AsyncClient(
-                timeout=30.0,
-                follow_redirects=True,
-                proxy=proxy,
-                headers={"User-Agent": USER_AGENT},
-            ) as client:
-                response = await client.get(
-                    f"https://pikabu.ru/generate_xml_comm.php?id={story_id}"
+            try:
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: curl_requests.get(
+                        url,
+                        headers={"User-Agent": USER_AGENT},
+                        impersonate="chrome",
+                        timeout=30,
+                        allow_redirects=True,
+                        proxy=proxy,
+                    ),
                 )
                 if response.status_code == 429:
                     wait = 10 * (attempt + 1)
                     logger.warning("429 on XML comments for story %s, waiting %ds", story_id, wait)
                     await asyncio.sleep(wait)
                     continue
-                response.raise_for_status()
+                if response.status_code >= 400:
+                    raise Exception(f"HTTP {response.status_code}")
                 break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                wait = 10 * (attempt + 1)
+                logger.warning("Error fetching XML comments for story %s: %s, waiting %ds", story_id, exc, wait)
+                await asyncio.sleep(wait)
+                continue
         else:
             return []
 
@@ -394,38 +408,39 @@ class ParserService:
     # ------------------------------------------------------------------
 
     async def _fetch_page(self, url: str) -> str:
-        """Fetch a single page with retry logic.
+        """Fetch a single page with retry logic using curl_cffi.
 
-        - HTTP 429: wait ``settings.pikabu_retry_delay_429`` seconds, then retry (indefinitely).
+        Uses Chrome TLS fingerprint impersonation for anti-bot bypass.
+
+        - HTTP 429: wait ``settings.pikabu_retry_delay_429`` seconds, then retry.
         - HTTP 5xx: retry up to ``settings.pikabu_retry_count_5xx`` times with
           ``settings.pikabu_retry_delay_5xx`` seconds between attempts.
-        - Network errors (``httpx.RequestError``): raise ``ParserError`` immediately
-          so the caller can save already-collected data and report a partial result.
+        - Network errors: raise ``ParserError`` immediately.
         """
         retries_5xx = 0
         retries_429 = 0
+        proxy = settings.pikabu_proxy_url or None
 
         while True:
             try:
-                proxy = settings.pikabu_proxy_url or None
-                async with httpx.AsyncClient(
-                    timeout=30.0,
-                    follow_redirects=True,
-                    headers=BROWSER_HEADERS,
-                    proxy=proxy,
-                ) as client:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    return response.text
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: curl_requests.get(
+                        url,
+                        headers=BROWSER_HEADERS,
+                        impersonate="chrome",
+                        timeout=30,
+                        allow_redirects=True,
+                        proxy=proxy,
+                    ),
+                )
 
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-
-                if status == 429:
+                if response.status_code == 429:
                     retries_429 += 1
                     if retries_429 > 5:
                         logger.error("HTTP 429 fetching %s — exhausted 5 retries", url)
-                        raise ParserError(f"Pikabu rate limit: слишком много запросов к {url}") from exc
+                        raise ParserError(f"Pikabu rate limit: слишком много запросов к {url}")
                     logger.warning(
                         "HTTP 429 fetching %s — pausing %s s (attempt %d/5)",
                         url,
@@ -435,12 +450,12 @@ class ParserService:
                     await asyncio.sleep(settings.pikabu_retry_delay_429)
                     continue
 
-                if 500 <= status < 600:
+                if 500 <= response.status_code < 600:
                     retries_5xx += 1
                     if retries_5xx <= settings.pikabu_retry_count_5xx:
                         logger.warning(
                             "HTTP %s fetching %s — retry %s/%s in %s s",
-                            status,
+                            response.status_code,
                             url,
                             retries_5xx,
                             settings.pikabu_retry_count_5xx,
@@ -451,17 +466,22 @@ class ParserService:
 
                     logger.error(
                         "HTTP %s fetching %s — exhausted %s retries",
-                        status,
+                        response.status_code,
                         url,
                         settings.pikabu_retry_count_5xx,
                     )
 
-                logger.error("HTTP %s fetching %s", status, url)
-                raise ParserError(
-                    f"HTTP {status} при загрузке {url}"
-                ) from exc
+                if response.status_code >= 400:
+                    logger.error("HTTP %s fetching %s", response.status_code, url)
+                    raise ParserError(
+                        f"HTTP {response.status_code} при загрузке {url}"
+                    )
 
-            except httpx.RequestError as exc:
+                return response.text
+
+            except ParserError:
+                raise
+            except Exception as exc:
                 logger.error("Network error fetching %s: %s", url, exc)
                 raise ParserError(
                     f"Сетевая ошибка при загрузке {url}: {exc}"
