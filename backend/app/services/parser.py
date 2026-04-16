@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Callable, Awaitable
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 import httpx
 from bs4 import BeautifulSoup, Tag
@@ -110,11 +111,12 @@ class ParserService:
         Returns a list of dicts with keys:
         title, body, published_at, rating, comments_count, url, pikabu_post_id
         """
+        topic_url = _ensure_date_sort(topic_url)
         all_posts: list[dict] = []
         page = 1
 
         while True:
-            page_url = f"{topic_url}?page={page}" if page > 1 else topic_url
+            page_url = f"{topic_url}&page={page}" if page > 1 else topic_url
             html = await self._fetch_page(page_url)
             logger.info("Page %d: %d chars HTML", page, len(html))
             posts = self._extract_posts_from_html(html)
@@ -565,6 +567,15 @@ class ParserService:
 # ------------------------------------------------------------------
 # Module-level helpers
 # ------------------------------------------------------------------
+
+
+def _ensure_date_sort(url: str) -> str:
+    """Ensure the URL contains the query parameter ``sort=date``."""
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    params["sort"] = ["date"]
+    new_query = urlencode(params, doseq=True)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 def _parse_datetime(el: Tag | None) -> datetime:

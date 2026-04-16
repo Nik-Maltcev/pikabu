@@ -1,0 +1,4 @@
+# file: D:\PIKABU\backend\app\models\database.py
+# hypothesis_version: 6.150.2
+
+[100, 255, 500, 1000, 'AnalysisTask', 'CASCADE', 'Comment', 'ParseMetadata', 'PartialResult', 'Post', 'Report', 'Topic', 'all, delete-orphan', 'analysis_tasks', 'analysis_tasks.id', 'comments', 'generated_at', 'idx_comments_post_id', 'idx_posts_topic_id', 'idx_reports_topic_id', 'parse_metadata', 'partial_results', 'pending', 'post', 'post_id', 'posts', 'posts.id', 'published_at', 'reports', 'status', 'task', 'topic', 'topic_id', 'topics', 'topics.id']

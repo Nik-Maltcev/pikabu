@@ -559,7 +559,7 @@ class TestParsePosts:
     async def test_filters_old_posts(self, parser):
         since = datetime(2025, 1, 11, tzinfo=timezone.utc)
         with patch.object(parser, "_fetch_page", new_callable=AsyncMock) as mock_fetch:
-            mock_fetch.return_value = SAMPLE_TOPIC_PAGE_HTML
+            mock_fetch.side_effect = [SAMPLE_TOPIC_PAGE_HTML, EMPTY_PAGE_HTML]
             posts = await parser.parse_posts("https://pikabu.ru/community/test", since)
 
         # Only "Second Post" (Jan 12) should pass; "First Post" (Jan 10) is too old
@@ -590,10 +590,10 @@ class TestParsePosts:
             posts = await parser.parse_posts("https://pikabu.ru/community/test", since)
 
         assert len(posts) == 2
-        # Verify pagination URLs
+        # Verify pagination URLs (sort=date is always added by the fix)
         calls = mock_fetch.call_args_list
-        assert calls[0].args[0] == "https://pikabu.ru/community/test"
-        assert calls[1].args[0] == "https://pikabu.ru/community/test?page=2"
+        assert calls[0].args[0] == "https://pikabu.ru/community/test?sort=date"
+        assert calls[1].args[0] == "https://pikabu.ru/community/test?sort=date&page=2"
 
 
 # ---------------------------------------------------------------------------

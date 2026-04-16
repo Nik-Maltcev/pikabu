@@ -1,0 +1,4 @@
+# file: D:\PIKABU\backend\app\services\parser.py
+# hypothesis_version: 6.150.2
+
+[30.0, 100, 429, 500, 600, '%Y-%m-%d %H:%M', '-', '/', '0', '1', '?', '?1', 'Accept', 'Accept-Encoding', 'Accept-Language', 'Cache-Control', 'Connection', 'DNT', 'HTTP %s fetching %s', 'Sec-Fetch-Dest', 'Sec-Fetch-Mode', 'Sec-Fetch-Site', 'Sec-Fetch-User', 'User-Agent', '_(\\d+)$', 'body', 'comment', 'comment_', 'comments_count', 'data-comment-id', 'data-rating', 'data-story-id', 'date', 'datetime', 'document', 'gzip, deflate', 'href', 'html.parser', 'http', 'https://pikabu.ru', 'id', 'keep-alive', 'max-age=0', 'navigate', 'none', 'parsing', 'pikabu_comment_id', 'pikabu_post_id', 'posts_count', 'published_at', 'rating', 'sort', 'title', 'url']
