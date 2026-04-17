@@ -601,10 +601,17 @@ class ParserService:
 
 
 def _ensure_date_sort(url: str) -> str:
-    """Ensure the URL contains the query parameter ``sort=date``."""
+    """Ensure the URL requests newest-first posts.
+
+    For /themes/ URLs: adds ``feed=new`` parameter.
+    For /community/ URLs: adds ``sort=date`` parameter.
+    """
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
-    params["sort"] = ["date"]
+    if "/themes/" in parsed.path:
+        params["feed"] = ["new"]
+    else:
+        params["sort"] = ["date"]
     new_query = urlencode(params, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
