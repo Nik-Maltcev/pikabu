@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # Google Gemini API
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash-preview-04-17"
 
     # LLM provider: "deepseek" or "gemini"
     llm_provider: str = "deepseek"
