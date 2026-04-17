@@ -190,26 +190,32 @@ class AnalyzerService:
         """Send a chunk to LLM and return a PartialResult."""
         prompt = _build_chunk_prompt(chunk)
         last_error: Exception | None = None
+        max_attempts = self.max_retries if self.provider != "gemini" else 6
 
-        for attempt in range(self.max_retries):
+        for attempt in range(max_attempts):
             try:
                 text = await self._call_llm(prompt)
                 return _parse_partial_result(chunk.index, text)
             except (json.JSONDecodeError, ValueError, KeyError) as exc:
                 last_error = exc
-                logger.warning("Invalid JSON from LLM (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
+                logger.warning("Invalid JSON from LLM (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
             except httpx.HTTPStatusError as exc:
                 last_error = exc
-                logger.warning("LLM API HTTP error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
+                if exc.response.status_code == 429:
+                    delay = 20 * (attempt + 1)
+                    logger.warning("LLM 429 rate limit (chunk %d, attempt %d/%d), waiting %ds", chunk.index, attempt + 1, max_attempts, delay)
+                    await asyncio.sleep(delay)
+                    continue
+                logger.warning("LLM API HTTP error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
             except Exception as exc:
                 last_error = exc
-                logger.warning("LLM error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
+                logger.warning("LLM error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
 
-            if attempt < self.max_retries - 1:
+            if attempt < max_attempts - 1:
                 delay = 2 ** (attempt + 1)
                 await asyncio.sleep(delay)
 
-        raise AnalyzerError(f"LLM unavailable after {self.max_retries} attempts for chunk {chunk.index}: {last_error}")
+        raise AnalyzerError(f"LLM unavailable after {max_attempts} attempts for chunk {chunk.index}: {last_error}")
 
     async def aggregate_results(self, results: list[PartialResult]) -> dict:
         """Aggregate partial results into a final report."""
@@ -226,6 +232,14 @@ class AnalyzerService:
             except (json.JSONDecodeError, ValueError, KeyError) as exc:
                 last_error = exc
                 logger.warning("Invalid JSON during aggregation (attempt %d/%d): %s", attempt + 1, self.max_retries, exc)
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if exc.response.status_code == 429:
+                    delay = 20 * (attempt + 1)
+                    logger.warning("LLM 429 rate limit during aggregation (attempt %d/%d), waiting %ds", attempt + 1, self.max_retries, delay)
+                    await asyncio.sleep(delay)
+                    continue
+                logger.warning("LLM error during aggregation (attempt %d/%d): %s", attempt + 1, self.max_retries, exc)
             except Exception as exc:
                 last_error = exc
                 logger.warning("LLM error during aggregation (attempt %d/%d): %s", attempt + 1, self.max_retries, exc)
