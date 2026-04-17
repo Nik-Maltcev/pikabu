@@ -135,7 +135,7 @@ def _parse_partial_result(chunk_index: int, response_text: str) -> PartialResult
 
 
 class AnalyzerService:
-    """Service for analyzing data chunks via LLM (OpenAI-compatible API)."""
+    """Service for analyzing data chunks via LLM (DeepSeek or Gemini)."""
 
     def __init__(
         self,
@@ -143,15 +143,29 @@ class AnalyzerService:
         base_url: str | None = None,
         model: str | None = None,
         max_retries: int | None = None,
+        provider: str | None = None,
     ):
-        self.api_key = api_key or settings.llm_api_key
-        self.base_url = base_url or settings.llm_base_url
-        self.model = model or settings.llm_model
+        self.provider = provider or settings.llm_provider
         self.max_retries = max_retries if max_retries is not None else settings.llm_max_retries
+
+        if self.provider == "gemini":
+            self.api_key = api_key or settings.gemini_api_key
+            self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+            self.model = model or settings.gemini_model
+        else:
+            self.api_key = api_key or settings.llm_api_key
+            self.base_url = base_url or settings.llm_base_url
+            self.model = model or settings.llm_model
 
     async def _call_llm(self, prompt: str) -> str:
         """Call the LLM API and return the response text."""
-        logger.info("LLM request: model=%s, prompt_len=%d chars, ~%d tokens", self.model, len(prompt), len(prompt) // 4)
+        logger.info("LLM request: provider=%s, model=%s, prompt_len=%d chars, ~%d tokens",
+                     self.provider, self.model, len(prompt), len(prompt) // 4)
+
+        max_tokens = 8192
+        if self.provider == "gemini":
+            max_tokens = 65536
+
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
@@ -163,7 +177,7 @@ class AnalyzerService:
                     "model": self.model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.3,
-                    "max_tokens": 8192,
+                    "max_tokens": max_tokens,
                 },
             )
             if response.status_code != 200:
