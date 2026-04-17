@@ -265,6 +265,10 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                     )
                     await session.commit()
 
+                    # Pause between LLM calls to avoid rate limits
+                    if processed < total_chunks:
+                        await asyncio.sleep(5)
+
                 # Phase 3: Aggregation (85% → 100%)
                 await _update_task(session, task, status="aggregating", current_stage="Формирование итогового отчёта...", progress_percent=85)
                 await session.commit()
