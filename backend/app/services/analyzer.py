@@ -154,7 +154,7 @@ class AnalyzerService:
             self.model = model or settings.gemini_model
         elif self.provider == "glm":
             self.api_key = api_key or settings.glm_api_key
-            self.base_url = "https://open.bigmodel.cn/api/paas/v4"
+            self.base_url = "https://open.z.ai/api/paas/v4"
             self.model = model or settings.glm_model
         else:
             self.api_key = api_key or settings.llm_api_key
