@@ -135,7 +135,7 @@ def _parse_partial_result(chunk_index: int, response_text: str) -> PartialResult
 
 
 class AnalyzerService:
-    """Service for analyzing data chunks via LLM (DeepSeek or Gemini)."""
+    """Service for analyzing data chunks via LLM (DeepSeek, Gemini, or GLM)."""
 
     def __init__(
         self,
@@ -152,6 +152,10 @@ class AnalyzerService:
             self.api_key = api_key or settings.gemini_api_key
             self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
             self.model = model or settings.gemini_model
+        elif self.provider == "glm":
+            self.api_key = api_key or settings.glm_api_key
+            self.base_url = "https://open.bigmodel.cn/api/paas/v4"
+            self.model = model or settings.glm_model
         else:
             self.api_key = api_key or settings.llm_api_key
             self.base_url = base_url or settings.llm_base_url
@@ -165,6 +169,8 @@ class AnalyzerService:
         max_tokens = 8192
         if self.provider == "gemini":
             max_tokens = 65536
+        elif self.provider == "glm":
+            max_tokens = 4096
 
         # Force IPv4 for Gemini (Google blocks some IPv6 ranges)
         transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0") if self.provider == "gemini" else None
