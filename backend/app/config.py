@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Z.AI / GLM settings
     glm_api_key: str = ""
-    glm_model: str = "GLM-4-Flash"
+    glm_model: str = "glm-4.7-flash"
 
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
