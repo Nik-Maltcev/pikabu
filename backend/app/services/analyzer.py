@@ -166,7 +166,9 @@ class AnalyzerService:
         if self.provider == "gemini":
             max_tokens = 65536
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        # Force IPv4 for Gemini (Google blocks some IPv6 ranges)
+        transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0") if self.provider == "gemini" else None
+        async with httpx.AsyncClient(timeout=300.0, transport=transport) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers={
