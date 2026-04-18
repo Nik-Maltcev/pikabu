@@ -424,20 +424,33 @@ class ParserService:
 
         while True:
             try:
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    lambda: curl_requests.get(
-                        url,
+                if proxy:
+                    # Use httpx for proxy support (curl_cffi has issues with proxy auth in Docker)
+                    async with httpx.AsyncClient(
+                        timeout=30.0,
+                        follow_redirects=True,
                         headers=BROWSER_HEADERS,
-                        impersonate="chrome",
-                        timeout=30,
-                        allow_redirects=True,
                         proxy=proxy,
-                    ),
-                )
+                    ) as client:
+                        resp = await client.get(url)
+                        status_code = resp.status_code
+                        text = resp.text
+                else:
+                    loop = asyncio.get_event_loop()
+                    response = await loop.run_in_executor(
+                        None,
+                        lambda: curl_requests.get(
+                            url,
+                            headers=BROWSER_HEADERS,
+                            impersonate="chrome",
+                            timeout=30,
+                            allow_redirects=True,
+                        ),
+                    )
+                    status_code = response.status_code
+                    text = response.text
 
-                if response.status_code == 429:
+                if status_code == 429:
                     retries_429 += 1
                     if retries_429 > 5:
                         logger.error("HTTP 429 fetching %s — exhausted 5 retries", url)
@@ -451,12 +464,12 @@ class ParserService:
                     await asyncio.sleep(settings.pikabu_retry_delay_429)
                     continue
 
-                if 500 <= response.status_code < 600:
+                if 500 <= status_code < 600:
                     retries_5xx += 1
                     if retries_5xx <= settings.pikabu_retry_count_5xx:
                         logger.warning(
                             "HTTP %s fetching %s — retry %s/%s in %s s",
-                            response.status_code,
+                            status_code,
                             url,
                             retries_5xx,
                             settings.pikabu_retry_count_5xx,
@@ -467,20 +480,19 @@ class ParserService:
 
                     logger.error(
                         "HTTP %s fetching %s — exhausted %s retries",
-                        response.status_code,
+                        status_code,
                         url,
                         settings.pikabu_retry_count_5xx,
                     )
 
-                if response.status_code >= 400:
-                    logger.error("HTTP %s fetching %s", response.status_code, url)
+                if status_code >= 400:
+                    logger.error("HTTP %s fetching %s", status_code, url)
                     raise ParserError(
-                        f"HTTP {response.status_code} при загрузке {url}"
+                        f"HTTP {status_code} при загрузке {url}"
                     )
 
-                # Reset network retry counter on success
                 retries_network = 0
-                return response.text
+                return text
 
             except ParserError:
                 raise
