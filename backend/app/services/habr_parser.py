@@ -558,8 +558,10 @@ def _parse_datetime(el: Tag | None) -> datetime:
 
     dt_str = el.get("datetime", "") if isinstance(el, Tag) else ""
     if dt_str:
+        # Python 3.11 doesn't support 'Z' suffix in fromisoformat
+        dt_str = str(dt_str).replace("Z", "+00:00")
         try:
-            return datetime.fromisoformat(str(dt_str))
+            return datetime.fromisoformat(dt_str)
         except (ValueError, TypeError):
             pass
 
