@@ -112,65 +112,127 @@ class VcruParserService:
         return {"posts_count": total_posts, "comments_count": total_comments}
 
     async def parse_posts(self, category_url: str, since: datetime) -> list[dict]:
-        """Fetch and parse articles from a VC.ru category page with pagination.
+        """Fetch and parse articles from a VC.ru category using __INITIAL_STATE__ + API.
 
-        Pagination: ?page=N for N>=2.
+        First page: parse __INITIAL_STATE__ JSON from HTML.
+        Subsequent pages: use VC.ru internal API with lastId pagination.
         """
+        import json as _json
+
         all_posts: list[dict] = []
-        page = 1
 
-        while True:
-            if page == 1:
-                page_url = category_url
-            else:
-                base = category_url.rstrip("/")
-                page_url = f"{base}?page={page}"
+        # Page 1: fetch HTML and extract from __INITIAL_STATE__
+        html = await self._fetch_page(category_url)
+        logger.info("VC.ru page 1: %d chars HTML", len(html))
+        posts = self._extract_posts_from_html(html)
+        logger.info("VC.ru page 1: %d posts extracted", len(posts))
 
+        if not posts:
+            return all_posts
+
+        # Get subsiteId from __INITIAL_STATE__ for API pagination
+        subsite_id = None
+        match = re.search(r'__INITIAL_STATE__\s*=\s*({.+?})\s*;?\s*</script>', html, re.DOTALL)
+        if match:
             try:
-                html = await self._fetch_page(page_url)
-            except VcruParserError as exc:
-                if "HTTP 400" in str(exc):
-                    logger.info("VC.ru pagination limit reached at page %d. Total: %d", page, len(all_posts))
+                state = _json.loads(match.group(1))
+                for key, val in state.items():
+                    if key.startswith("subsite@") and isinstance(val, dict):
+                        sub_data = val.get("data", val)
+                        subsite_id = sub_data.get("id")
+                        break
+            except Exception:
+                pass
+
+        # Process page 1 posts
+        found_old = False
+        fresh_on_page = 0
+        last_id = None
+        for post in posts:
+            if post["published_at"] >= since:
+                all_posts.append(post)
+                fresh_on_page += 1
+                last_id = post["pikabu_post_id"].replace("vcru_", "")
+            else:
+                found_old = True
+                last_id = post["pikabu_post_id"].replace("vcru_", "")
+
+        if found_old and fresh_on_page == 0:
+            logger.info("Stopping: all articles on page 1 are old. Total: %d", len(all_posts))
+            return all_posts
+
+        logger.info("VC.ru page 1 done: %d fresh, %d old. Total: %d", fresh_on_page, len(posts) - fresh_on_page, len(all_posts))
+
+        # Subsequent pages via API
+        if subsite_id and last_id:
+            page = 2
+            while True:
+                api_url = f"https://api.vc.ru/v2.8/timeline?subsitesIds={subsite_id}&sorting=new&count=20&lastId={last_id}"
+                try:
+                    api_html = await self._fetch_page(api_url)
+                except VcruParserError:
+                    logger.info("VC.ru API pagination ended at page %d. Total: %d", page, len(all_posts))
                     break
-                raise
-            logger.info("VC.ru page %d: %d chars HTML", page, len(html))
-            posts = self._extract_posts_from_html(html)
-            logger.info("VC.ru page %d: %d posts extracted", page, len(posts))
 
-            if not posts:
-                break
+                try:
+                    api_data = _json.loads(api_html)
+                except (_json.JSONDecodeError, ValueError):
+                    break
 
-            found_old = False
-            fresh_on_page = 0
-            for post in posts:
-                if post["published_at"] >= since:
-                    all_posts.append(post)
-                    fresh_on_page += 1
-                else:
-                    found_old = True
-                    logger.info(
-                        "Old VC.ru article skipped: %s date=%s",
-                        post["pikabu_post_id"],
-                        post["published_at"],
-                    )
+                items = api_data.get("result", {}).get("items", [])
+                if not items:
+                    break
 
-            if found_old and fresh_on_page == 0:
-                logger.info(
-                    "Stopping pagination: all articles on page %d are old. Total: %d",
-                    page,
-                    len(all_posts),
-                )
-                break
+                api_posts = []
+                for item in items:
+                    data = item.get("data", {}) if isinstance(item, dict) else {}
+                    if not data:
+                        continue
+                    article_id = str(data.get("id", ""))
+                    title = data.get("title", "")
+                    if not article_id or not title:
+                        continue
+                    url = data.get("url", f"https://vc.ru/{article_id}")
+                    body_parts = []
+                    for block in data.get("blocks", []):
+                        if isinstance(block, dict):
+                            bd = block.get("data", {})
+                            if isinstance(bd, dict) and bd.get("text"):
+                                body_parts.append(bd["text"])
+                    body = " ".join(body_parts)[:2000]
+                    date_ts = data.get("date", 0)
+                    published_at = datetime.fromtimestamp(date_ts, tz=timezone.utc) if date_ts else datetime.now(timezone.utc)
+                    counters = data.get("counters", {})
+                    api_posts.append({
+                        "pikabu_post_id": f"vcru_{article_id}",
+                        "title": title,
+                        "body": body,
+                        "published_at": published_at,
+                        "rating": counters.get("reactions", 0) if isinstance(counters, dict) else 0,
+                        "comments_count": counters.get("comments", 0) if isinstance(counters, dict) else 0,
+                        "url": url,
+                    })
+                    last_id = article_id
 
-            logger.info(
-                "VC.ru page %d done: %d fresh, %d old. Total so far: %d",
-                page,
-                fresh_on_page,
-                len(posts) - fresh_on_page,
-                len(all_posts),
-            )
+                if not api_posts:
+                    break
 
-            page += 1
+                found_old = False
+                fresh_on_page = 0
+                for post in api_posts:
+                    if post["published_at"] >= since:
+                        all_posts.append(post)
+                        fresh_on_page += 1
+                    else:
+                        found_old = True
+
+                logger.info("VC.ru API page %d: %d fresh, %d old. Total: %d", page, fresh_on_page, len(api_posts) - fresh_on_page, len(all_posts))
+
+                if found_old and fresh_on_page == 0:
+                    logger.info("Stopping: all articles on API page %d are old. Total: %d", page, len(all_posts))
+                    break
+
+                page += 1
 
         return all_posts
 
@@ -191,12 +253,93 @@ class VcruParserService:
 
     @staticmethod
     def _extract_posts_from_html(html: str) -> list[dict]:
-        """Extract article data from a VC.ru category page HTML."""
-        soup = BeautifulSoup(html, "html.parser")
+        """Extract article data from VC.ru page by parsing __INITIAL_STATE__ JSON.
+
+        VC.ru embeds article data as JSON in a <script> tag with __INITIAL_STATE__.
+        """
+        import json as _json
+
         posts: list[dict] = []
         seen_ids: set[str] = set()
 
-        articles = soup.select("div.feed__item, article.l-entry")
+        match = re.search(r'__INITIAL_STATE__\s*=\s*({.+?})\s*;?\s*</script>', html, re.DOTALL)
+        if not match:
+            return posts
+
+        try:
+            state = _json.loads(match.group(1))
+        except (_json.JSONDecodeError, ValueError):
+            return posts
+
+        # Find feed data — key starts with "feed@"
+        feed_data = None
+        for key, val in state.items():
+            if key.startswith("feed@") and isinstance(val, dict):
+                feed_data = val
+                break
+
+        if not feed_data:
+            return posts
+
+        items = feed_data.get("items", [])
+        for item in items:
+            try:
+                data = item.get("data", {}) if isinstance(item, dict) else {}
+                if not data:
+                    continue
+
+                article_id = str(data.get("id", ""))
+                if not article_id or article_id in seen_ids:
+                    continue
+
+                title = data.get("title", "")
+                if not title:
+                    continue
+
+                url = data.get("url", "")
+                if not url:
+                    url = f"https://vc.ru/{article_id}"
+
+                # Body from blocks
+                body_parts = []
+                for block in data.get("blocks", []):
+                    if isinstance(block, dict):
+                        block_data = block.get("data", {})
+                        if isinstance(block_data, dict):
+                            text = block_data.get("text", "")
+                            if text:
+                                body_parts.append(text)
+                body = " ".join(body_parts)[:2000]  # Limit body length
+
+                # Date (unix timestamp)
+                date_ts = data.get("date", 0)
+                if date_ts:
+                    published_at = datetime.fromtimestamp(date_ts, tz=timezone.utc)
+                else:
+                    published_at = datetime.now(timezone.utc)
+
+                # Counters
+                counters = data.get("counters", {})
+                comments_count = counters.get("comments", 0) if isinstance(counters, dict) else 0
+                rating = counters.get("reactions", 0) if isinstance(counters, dict) else 0
+
+                pikabu_post_id = f"vcru_{article_id}"
+                seen_ids.add(article_id)
+
+                posts.append({
+                    "pikabu_post_id": pikabu_post_id,
+                    "title": title,
+                    "body": body,
+                    "published_at": published_at,
+                    "rating": rating,
+                    "comments_count": comments_count,
+                    "url": url,
+                })
+            except Exception:
+                logger.warning("Failed to parse VC.ru article from JSON, skipping", exc_info=True)
+                continue
+
+        return posts
 
         for article in articles:
             try:
@@ -212,62 +355,6 @@ class VcruParserService:
                 continue
 
         return posts
-
-    @staticmethod
-    def _parse_single_post(item: Tag) -> dict | None:
-        """Parse a single VC.ru article element into a dict."""
-        title_el = item.select_one("a.content-link, h2.content-title")
-        if title_el is None:
-            return None
-        title = title_el.get_text(strip=True)
-        if not title:
-            return None
-
-        # URL
-        if title_el.name == "a":
-            href = title_el.get("href", "")
-        else:
-            link_el = item.select_one("a.content-link, a[href]")
-            href = link_el.get("href", "") if link_el else ""
-        url = str(href) if str(href).startswith("http") else f"https://vc.ru{href}"
-
-        # Article ID from URL
-        article_id = ""
-        id_match = re.search(r"/(\d+)", str(href))
-        if id_match:
-            article_id = id_match.group(1)
-        if not article_id:
-            return None
-
-        pikabu_post_id = f"vcru_{article_id}"
-
-        # Body
-        body_el = item.select_one(".content-body, .l-entry__content")
-        body = body_el.get_text(strip=True) if body_el else ""
-
-        # Published date
-        time_el = item.select_one(
-            "time[datetime], .content-header-author__publish-date time"
-        )
-        published_at = _parse_datetime(time_el)
-
-        # Rating
-        rating_el = item.select_one(".vote__value, .likes__counter")
-        rating = _parse_int(rating_el)
-
-        # Comments count
-        comments_el = item.select_one(".comments-counter__value")
-        comments_count = _parse_int(comments_el)
-
-        return {
-            "pikabu_post_id": pikabu_post_id,
-            "title": title,
-            "body": body,
-            "published_at": published_at,
-            "rating": rating,
-            "comments_count": comments_count,
-            "url": url,
-        }
 
     @staticmethod
     def _extract_comments_from_html(html: str) -> list[dict]:
