@@ -85,10 +85,11 @@ async def start_analysis(
 ) -> AnalysisStartResponse:
     """Start a new analysis task for the given topic."""
     # Validate: source="habr" or "both" requires habr_topic_id
-    if request.source in ("habr", "both") and request.habr_topic_id is None:
+    # Validate: source="both" requires habr_topic_id
+    if request.source == "both" and request.habr_topic_id is None:
         raise HTTPException(
             status_code=400,
-            detail="habr_topic_id is required when source is 'habr' or 'both'",
+            detail="habr_topic_id is required when source is 'both'",
         )
 
     # Validate topic exists
