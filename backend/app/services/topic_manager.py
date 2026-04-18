@@ -1,4 +1,4 @@
-"""TopicManager — fetches and caches Pikabu communities/tags."""
+"""TopicManager — fetches and caches Pikabu communities/tags and Habr flows."""
 
 import logging
 from datetime import datetime, timezone
@@ -14,6 +14,13 @@ from app.models.database import Topic
 logger = logging.getLogger(__name__)
 
 PIKABU_COMMUNITIES_URL = "https://pikabu.ru/communities"
+
+# Predefined Habr flows (management, top_management, marketing)
+HABR_FLOWS = [
+    {"pikabu_id": "habr_management", "name": "Менеджмент", "url": "https://habr.com/ru/flows/management/articles/", "subscribers_count": None, "source": "habr"},
+    {"pikabu_id": "habr_top_management", "name": "Топ-менеджмент", "url": "https://habr.com/ru/flows/top_management/articles/", "subscribers_count": None, "source": "habr"},
+    {"pikabu_id": "habr_marketing", "name": "Маркетинг", "url": "https://habr.com/ru/flows/marketing/articles/", "subscribers_count": None, "source": "habr"},
+]
 
 # Pikabu renders /communities via JavaScript, so BeautifulSoup gets empty HTML.
 # Fallback: popular communities list (can be extended).
@@ -76,16 +83,26 @@ class TopicManager:
         """
         return filter_topics(topics, search)
 
-    async def fetch_topics(self) -> list[Topic]:
-        """Fetch communities from pikabu.ru, cache them in DB, and return."""
-        cached = await self._get_cached_topics()
-        if cached is not None:
-            return cached
+    async def fetch_topics(self, source: str = "pikabu") -> list[Topic]:
+        """Fetch topics filtered by source.
 
-        raw_topics = await self._scrape_communities()
-        await self._upsert_topics(raw_topics)
-        await self._session.commit()
-        return await self._all_topics()
+        Args:
+            source: "pikabu" (default), "habr", or "both".
+        """
+        if source in ("pikabu", "both"):
+            cached_pikabu = await self._get_cached_topics(source="pikabu")
+            if cached_pikabu is None:
+                raw_topics = await self._scrape_communities()
+                await self._upsert_topics(raw_topics, source="pikabu")
+                await self._session.commit()
+
+        if source in ("habr", "both"):
+            cached_habr = await self._get_cached_topics(source="habr")
+            if cached_habr is None:
+                await self._upsert_topics(HABR_FLOWS, source="habr")
+                await self._session.commit()
+
+        return await self._all_topics(source=source)
 
     async def get_topic_info(self, topic_id: int) -> Topic | None:
         """Return a single topic by its DB primary key, or None."""
@@ -98,9 +115,9 @@ class TopicManager:
     # Cache helpers
     # ------------------------------------------------------------------
 
-    async def _get_cached_topics(self) -> list[Topic] | None:
-        """Return cached topics if any exist and are fresh enough."""
-        topics = await self._all_topics()
+    async def _get_cached_topics(self, source: str = "pikabu") -> list[Topic] | None:
+        """Return cached topics if any exist and are fresh enough, filtered by source."""
+        topics = await self._all_topics(source=source)
         if not topics:
             return None
 
@@ -117,8 +134,14 @@ class TopicManager:
             return topics
         return None
 
-    async def _all_topics(self) -> list[Topic]:
-        result = await self._session.execute(select(Topic).order_by(Topic.name))
+    async def _all_topics(self, source: str = "pikabu") -> list[Topic]:
+        query = select(Topic).order_by(Topic.name)
+        if source == "pikabu":
+            query = query.where(Topic.source == "pikabu")
+        elif source == "habr":
+            query = query.where(Topic.source == "habr")
+        # "both" — no filter, return all
+        result = await self._session.execute(query)
         return list(result.scalars().all())
 
     # ------------------------------------------------------------------
@@ -211,7 +234,7 @@ class TopicManager:
     # DB upsert
     # ------------------------------------------------------------------
 
-    async def _upsert_topics(self, raw_topics: list[dict]) -> None:
+    async def _upsert_topics(self, raw_topics: list[dict], source: str = "pikabu") -> None:
         """Insert or update topics in the database."""
         now = datetime.now(timezone.utc)
 
@@ -221,10 +244,13 @@ class TopicManager:
             )
             existing = result.scalar_one_or_none()
 
+            topic_source = raw.get("source", source)
+
             if existing:
                 existing.name = raw["name"]
                 existing.url = raw["url"]
                 existing.subscribers_count = raw["subscribers_count"]
+                existing.source = topic_source
                 existing.last_fetched_at = now
             else:
                 topic = Topic(
@@ -232,6 +258,7 @@ class TopicManager:
                     name=raw["name"],
                     url=raw["url"],
                     subscribers_count=raw["subscribers_count"],
+                    source=topic_source,
                     last_fetched_at=now,
                 )
                 self._session.add(topic)

@@ -1,0 +1,4 @@
+# file: D:\PIKABU\backend\app\services\analyzer.py
+# hypothesis_version: 6.150.2
+
+[0.3, 0.8, 300.0, 200, 429, 500, 4096, 8192, 65536, '0.0.0.0', 'Authorization', 'Content-Type', 'LLM response %d: %s', '```', 'active_discussions', 'application/json', 'choices', 'chunk_index', 'content', 'gemini', 'glm', 'hot_topics', 'max_tokens', 'message', 'messages', 'model', 'role', 'temperature', 'topics_found', 'trending_discussions', 'user', 'user_problems']

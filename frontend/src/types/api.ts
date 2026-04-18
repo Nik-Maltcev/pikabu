@@ -28,6 +28,7 @@ export interface Topic {
   name: string
   subscribers_count: number | null
   url: string
+  source?: string
 }
 
 export interface TopicListResponse {
@@ -38,6 +39,8 @@ export interface TopicListResponse {
 
 export interface AnalysisStartRequest {
   topic_id: number
+  source?: string
+  habr_topic_id?: number
 }
 
 export interface AnalysisStartResponse {
@@ -65,6 +68,7 @@ export interface Report {
   user_problems: UserProblem[]
   trending_discussions: TrendingDiscussion[]
   generated_at: string
+  sources?: string
 }
 
 export interface ReportListResponse {

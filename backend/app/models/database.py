@@ -44,6 +44,7 @@ class Topic(Base):
     parse_metadata = relationship(
         "ParseMetadata", back_populates="topic", uselist=False, cascade="all, delete-orphan"
     )
+    source = Column(String(20), nullable=False, default="pikabu")
 
 
 class Post(Base):
@@ -63,6 +64,8 @@ class Post(Base):
     parsed_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+    source = Column(String(20), nullable=False, default="pikabu")
 
     topic = relationship("Topic", back_populates="posts")
     comments = relationship(
@@ -169,6 +172,8 @@ class Report(Base):
     generated_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+    sources = Column(String(50), nullable=False, default="pikabu")
 
     topic = relationship("Topic", back_populates="reports")
     task = relationship("AnalysisTask", back_populates="reports")

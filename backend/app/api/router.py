@@ -43,6 +43,7 @@ def _topic_to_schema(t: DBTopic) -> Topic:
         name=t.name,
         subscribers_count=t.subscribers_count,
         url=t.url,
+        source=t.source,
     )
 
 
@@ -55,18 +56,20 @@ def _report_to_schema(r: DBReport) -> Report:
         user_problems=r.user_problems or [],
         trending_discussions=r.trending_discussions or [],
         generated_at=r.generated_at,
+        sources=r.sources,
     )
 
 
 @router.get("/topics", response_model=TopicListResponse)
 async def get_topics(
     search: str = Query(default="", description="Filter topics by name substring"),
+    source: str = Query(default="pikabu", description="Source filter: pikabu, habr, or both"),
     session: AsyncSession = Depends(get_session),
 ) -> TopicListResponse:
-    """Return the list of available Pikabu topics, optionally filtered by search."""
+    """Return the list of available topics, optionally filtered by search and source."""
     try:
         tm = TopicManager(session)
-        topics = await tm.fetch_topics()
+        topics = await tm.fetch_topics(source=source)
         if search:
             topics = TopicManager.filter_topics(topics, search)
         return TopicListResponse(topics=[_topic_to_schema(t) for t in topics])
@@ -81,6 +84,13 @@ async def start_analysis(
     session: AsyncSession = Depends(get_session),
 ) -> AnalysisStartResponse:
     """Start a new analysis task for the given topic."""
+    # Validate: source="habr" or "both" requires habr_topic_id
+    if request.source in ("habr", "both") and request.habr_topic_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="habr_topic_id is required when source is 'habr' or 'both'",
+        )
+
     # Validate topic exists
     result = await session.execute(
         select(DBTopic).where(DBTopic.id == request.topic_id)
@@ -88,6 +98,14 @@ async def start_analysis(
     topic = result.scalar_one_or_none()
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Validate habr_topic_id exists if provided
+    if request.habr_topic_id is not None:
+        habr_result = await session.execute(
+            select(DBTopic).where(DBTopic.id == request.habr_topic_id)
+        )
+        if habr_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Habr topic not found")
 
     # Validate days
     if request.days not in (7, 14, 30):
@@ -103,7 +121,13 @@ async def start_analysis(
 
         # Launch background analysis (uses its own session)
         asyncio.create_task(
-            _run_analysis_background(request.topic_id, task_id, request.days)
+            _run_analysis_background(
+                request.topic_id,
+                task_id,
+                request.days,
+                source=request.source,
+                habr_topic_id=request.habr_topic_id,
+            )
         )
 
         await session.commit()
@@ -190,17 +214,31 @@ async def get_report(
     return _report_to_schema(report)
 
 
-async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30) -> None:
+async def _run_analysis_background(
+    topic_id: int,
+    task_id: UUID,
+    days: int = 30,
+    source: str = "pikabu",
+    habr_topic_id: int | None = None,
+) -> None:
     """Run the full analysis pipeline in the background.
 
     Creates its own DB session so the request session can be closed.
     Uses the task already created by the router endpoint.
+
+    Args:
+        topic_id: Primary topic ID (pikabu topic or habr topic for source="habr").
+        task_id: The analysis task UUID.
+        days: Number of days to parse.
+        source: "pikabu", "habr", or "both".
+        habr_topic_id: Habr topic ID (required for "habr" and "both" modes).
     """
     from app.database import async_session
     from app.services.analyzer import AnalyzerError, AnalyzerService
     from app.services.cache import CacheService
     from app.services.chunker import chunk_data
     from app.services.parser import ParserError, ParserService
+    from app.services.habr_parser import HabrParserError, HabrParserService
     from app.models.database import PartialResult as DBPartialResult, Post, Report as DBReport
     from app.models.schemas import PartialResult
     from app.services.pipeline import _update_task, _load_posts_as_dicts, _save_partial_result_to_db
@@ -215,33 +253,66 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                 logger.error("Background task %s not found in DB", task_id)
                 return
 
-            parser = ParserService(session)
-            cache = CacheService(session)
             analyzer = AnalyzerService()
             partial_results: list[PartialResult] = []
 
+            # Determine sources label for the report
+            if source == "both":
+                sources_label = "pikabu,habr"
+            else:
+                sources_label = source
+
             try:
                 # Phase 1: Parsing (0% → 50%)
-                await _update_task(session, task, status="parsing", current_stage="Загрузка постов с Pikabu...", progress_percent=0)
-                await session.commit()
-
-                async def _parse_progress(stage: str, percent: int) -> None:
-                    # Map 0-100% parsing progress to 0-50% overall
-                    overall = int(percent * 0.5)
-                    post_info = f"Загрузка постов и комментариев... {percent}%"
-                    await _update_task(session, task, current_stage=post_info, progress_percent=overall)
+                if source in ("pikabu", "both"):
+                    parser = ParserService(session)
+                    stage_label = "Загрузка постов с Pikabu..." if source == "both" else "Загрузка постов с Pikabu..."
+                    await _update_task(session, task, status="parsing", current_stage=stage_label, progress_percent=0)
                     await session.commit()
 
-                await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
+                    async def _pikabu_progress(stage: str, percent: int) -> None:
+                        if source == "both":
+                            overall = int(percent * 0.25)  # 0-25% for pikabu in "both" mode
+                        else:
+                            overall = int(percent * 0.5)
+                        post_info = f"Загрузка постов с Pikabu... {percent}%"
+                        await _update_task(session, task, current_stage=post_info, progress_percent=overall)
+                        await session.commit()
+
+                    await parser.parse_topic(topic_id, callback=_pikabu_progress, days=days)
+
+                if source in ("habr", "both"):
+                    habr_parser = HabrParserService(session)
+                    habr_tid = habr_topic_id if habr_topic_id is not None else topic_id
+                    stage_label = "Загрузка статей с Habr..."
+                    base_progress = 25 if source == "both" else 0
+                    await _update_task(session, task, status="parsing", current_stage=stage_label, progress_percent=base_progress)
+                    await session.commit()
+
+                    async def _habr_progress(stage: str, percent: int) -> None:
+                        if source == "both":
+                            overall = 25 + int(percent * 0.25)  # 25-50% for habr in "both" mode
+                        else:
+                            overall = int(percent * 0.5)
+                        post_info = f"Загрузка статей с Habr... {percent}%"
+                        await _update_task(session, task, current_stage=post_info, progress_percent=overall)
+                        await session.commit()
+
+                    await habr_parser.parse_topic(habr_tid, callback=_habr_progress, days=days)
 
                 # Phase 2: Chunking + Analysis (50% → 85%)
                 await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных для анализа...", progress_percent=50)
                 await session.commit()
 
+                # Load posts from all relevant topic_ids
                 posts_data = await _load_posts_as_dicts(session, topic_id)
+                if source == "both" and habr_topic_id is not None and habr_topic_id != topic_id:
+                    habr_posts = await _load_posts_as_dicts(session, habr_topic_id)
+                    posts_data.extend(habr_posts)
+
                 chunks = chunk_data(posts_data)
                 total_chunks = len(chunks)
-                logger.info("Topic %s: %d posts, %d chunks", topic_id, len(posts_data), total_chunks)
+                logger.info("Topic %s (source=%s): %d posts, %d chunks", topic_id, source, len(posts_data), total_chunks)
                 for c in chunks:
                     logger.info("  Chunk %d: %d posts, ~%d tokens", c.index, len(c.posts_data), c.estimated_tokens)
                 await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
@@ -255,7 +326,6 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                     await session.commit()
 
                     processed = i + 1
-                    # Map chunk progress to 50-85% overall
                     chunk_progress = 50 + int((processed / max(total_chunks, 1)) * 35)
                     await _update_task(
                         session, task,
@@ -265,7 +335,6 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                     )
                     await session.commit()
 
-                    # Pause between LLM calls to avoid rate limits
                     if processed < total_chunks:
                         await asyncio.sleep(5)
 
@@ -275,7 +344,7 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
 
                 report_data = await analyzer.hierarchical_aggregate(partial_results)
 
-                # Save report
+                # Save report with sources
                 from datetime import datetime, timezone
                 hot_topics = report_data.get("hot_topics", [])
                 user_problems = report_data.get("user_problems", [])
@@ -288,6 +357,7 @@ async def _run_analysis_background(topic_id: int, task_id: UUID, days: int = 30)
                     user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
                     trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
                     generated_at=datetime.now(timezone.utc),
+                    sources=sources_label,
                 )
                 session.add(db_report)
                 await session.commit()

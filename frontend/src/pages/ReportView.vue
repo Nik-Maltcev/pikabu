@@ -37,6 +37,24 @@ async function loadReport() {
   }
 }
 
+function sourcesLabel(sources?: string): string {
+  if (!sources) return 'Pikabu'
+  if (sources === 'pikabu,habr') return 'Pikabu + Habr'
+  if (sources === 'habr') return 'Habr'
+  return 'Pikabu'
+}
+
+function sourcesBadgeClass(sources?: string): string {
+  if (!sources || sources === 'pikabu') return 'rv-src-badge--pikabu'
+  if (sources === 'habr') return 'rv-src-badge--habr'
+  return 'rv-src-badge--both'
+}
+
+function postPlatformLabel(url: string): string {
+  if (url.includes('habr.com')) return 'Открыть на Habr ↗'
+  return 'Открыть на Pikabu ↗'
+}
+
 function goBack() {
   router.push({ name: 'reports', params: { topicId: String(topicId) } })
 }
@@ -65,7 +83,12 @@ onMounted(loadReport)
 
     <!-- Report content -->
     <template v-else-if="report">
-      <p class="rv-date">Сгенерирован: {{ formatDate(report.generated_at) }}</p>
+      <p class="rv-date">
+        <span class="rv-src-badge" :class="sourcesBadgeClass(report.sources)">
+          {{ sourcesLabel(report.sources) }}
+        </span>
+        Сгенерирован: {{ formatDate(report.generated_at) }}
+      </p>
 
       <!-- Section 1: Hot Topics -->
       <section class="rv-section">
@@ -116,7 +139,7 @@ onMounted(loadReport)
               rel="noopener"
               class="rv-link"
             >
-              Открыть на Pikabu ↗
+              {{ postPlatformLabel(td.post_url) }}
             </a>
           </li>
         </ul>
@@ -164,6 +187,46 @@ onMounted(loadReport)
   font-size: 14px;
   color: var(--text);
   margin: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Source badge */
+.rv-src-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.rv-src-badge--pikabu {
+  background: rgba(76, 175, 80, 0.15);
+  color: #2e7d32;
+}
+
+.rv-src-badge--habr {
+  background: rgba(33, 150, 243, 0.15);
+  color: #1565c0;
+}
+
+.rv-src-badge--both {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .rv-src-badge--pikabu {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+  }
+  .rv-src-badge--habr {
+    background: rgba(33, 150, 243, 0.2);
+    color: #64b5f6;
+  }
 }
 
 /* Sections */

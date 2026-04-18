@@ -37,7 +37,7 @@ def test_topic_columns():
     col_names = {c.key for c in mapper.columns}
     assert col_names == {
         "id", "pikabu_id", "name", "subscribers_count",
-        "url", "last_fetched_at", "created_at",
+        "url", "last_fetched_at", "created_at", "source",
     }
 
 
@@ -46,7 +46,7 @@ def test_post_columns():
     col_names = {c.key for c in mapper.columns}
     assert col_names == {
         "id", "topic_id", "pikabu_post_id", "title", "body",
-        "published_at", "rating", "comments_count", "url", "parsed_at",
+        "published_at", "rating", "comments_count", "url", "parsed_at", "source",
     }
 
 
@@ -83,7 +83,7 @@ def test_report_columns():
     col_names = {c.key for c in mapper.columns}
     assert col_names == {
         "id", "topic_id", "task_id",
-        "hot_topics", "user_problems", "trending_discussions", "generated_at",
+        "hot_topics", "user_problems", "trending_discussions", "generated_at", "sources",
     }
 
 

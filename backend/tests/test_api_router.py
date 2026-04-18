@@ -30,6 +30,7 @@ def _make_topic(
     subscribers_count: int = 100,
     url: str = "https://pikabu.ru/community/test",
     last_fetched_at: datetime | None = None,
+    source: str = "pikabu",
 ) -> DBTopic:
     t = DBTopic()
     t.id = id
@@ -38,6 +39,7 @@ def _make_topic(
     t.subscribers_count = subscribers_count
     t.url = url
     t.last_fetched_at = last_fetched_at or datetime.now(timezone.utc)
+    t.source = source
     return t
 
 
@@ -64,6 +66,7 @@ def _make_report(
     id: int = 1,
     topic_id: int = 1,
     task_id: uuid.UUID | None = None,
+    sources: str = "pikabu",
 ) -> DBReport:
     r = DBReport()
     r.id = id
@@ -76,6 +79,7 @@ def _make_report(
          "post_url": "https://pikabu.ru/1", "activity_score": 9.5}
     ]
     r.generated_at = datetime.now(timezone.utc)
+    r.sources = sources
     return r
 
 
@@ -163,6 +167,8 @@ class TestGetTopics:
         assert len(data["topics"]) == 2
         assert data["topics"][0]["name"] == "Python"
         assert data["topics"][1]["name"] == "JavaScript"
+        # Verify source field is present
+        assert data["topics"][0]["source"] == "pikabu"
 
     def test_returns_empty_list_when_no_topics(self, client, mock_session):
         """Should return empty list when no topics available."""

@@ -44,6 +44,7 @@ class Topic(BaseModel):
     name: str
     subscribers_count: int | None
     url: str
+    source: str = "pikabu"
 
 
 class TopicListResponse(BaseModel):
@@ -60,6 +61,8 @@ class AnalysisStartRequest(BaseModel):
 
     topic_id: int
     days: int = 30  # 7, 14, or 30
+    source: str = "pikabu"
+    habr_topic_id: int | None = None
 
 
 class AnalysisStartResponse(BaseModel):
@@ -94,6 +97,7 @@ class Report(BaseModel):
     user_problems: list[UserProblem]
     trending_discussions: list[TrendingDiscussion]
     generated_at: datetime
+    sources: str = "pikabu"
 
 
 class ReportListResponse(BaseModel):

@@ -15,17 +15,24 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-export async function getTopics(search?: string): Promise<TopicListResponse> {
-  const params = search ? { search } : {}
+export async function getTopics(search?: string, source?: string): Promise<TopicListResponse> {
+  const params: Record<string, string> = {}
+  if (search) params.search = search
+  if (source) params.source = source
   const { data } = await api.get<TopicListResponse>('/topics', { params })
   return data
 }
 
-export async function startAnalysis(topicId: number, days: number = 30): Promise<AnalysisStartResponse> {
-  const { data } = await api.post<AnalysisStartResponse>('/analysis/start', {
-    topic_id: topicId,
-    days,
-  })
+export async function startAnalysis(
+  topicId: number,
+  days: number = 30,
+  source?: string,
+  habrTopicId?: number,
+): Promise<AnalysisStartResponse> {
+  const body: Record<string, unknown> = { topic_id: topicId, days }
+  if (source) body.source = source
+  if (habrTopicId != null) body.habr_topic_id = habrTopicId
+  const { data } = await api.post<AnalysisStartResponse>('/analysis/start', body)
   return data
 }
 

@@ -151,7 +151,7 @@ class TestScrapeCommunities:
         assert result[0]["name"] == "Наука"
 
     @pytest.mark.asyncio
-    async def test_http_error_raises(self, manager):
+    async def test_http_error_uses_fallback(self, manager):
         mock_response = httpx.Response(
             status_code=503,
             request=httpx.Request("GET", "https://pikabu.ru/communities"),
@@ -162,19 +162,24 @@ class TestScrapeCommunities:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            with pytest.raises(TopicManagerError, match="HTTP 503"):
-                await manager._scrape_communities()
+            result = await manager._scrape_communities()
+
+        # Falls back to FALLBACK_COMMUNITIES on HTTP error
+        from app.services.topic_manager import FALLBACK_COMMUNITIES
+        assert len(result) == len(FALLBACK_COMMUNITIES)
 
     @pytest.mark.asyncio
-    async def test_network_error_raises(self, manager):
+    async def test_network_error_uses_fallback(self, manager):
         with patch("app.services.topic_manager.httpx.AsyncClient") as mock_cls:
             ctx = AsyncMock()
             ctx.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            with pytest.raises(TopicManagerError, match="сетевая ошибка"):
-                await manager._scrape_communities()
+            result = await manager._scrape_communities()
+
+        from app.services.topic_manager import FALLBACK_COMMUNITIES
+        assert len(result) == len(FALLBACK_COMMUNITIES)
 
 
 # ---------------------------------------------------------------------------
