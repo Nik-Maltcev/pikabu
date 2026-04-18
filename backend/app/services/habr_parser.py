@@ -137,7 +137,14 @@ class HabrParserService:
                 base = flow_url.rstrip("/") + "/"
                 page_url = f"{base}page{page}/"
 
-            html = await self._fetch_page(page_url)
+            try:
+                html = await self._fetch_page(page_url)
+            except HabrParserError as exc:
+                # Habr returns 400 when page exceeds max pagination — treat as end
+                if "HTTP 400" in str(exc):
+                    logger.info("Habr pagination limit reached at page %d. Total: %d", page, len(all_posts))
+                    break
+                raise
             logger.info("Habr page %d: %d chars HTML", page, len(html))
             posts = self._extract_posts_from_html(html)
             logger.info("Habr page %d: %d posts extracted", page, len(posts))
