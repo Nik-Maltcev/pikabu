@@ -201,8 +201,8 @@ class HabrParserService:
         if renderer:
             html = await renderer.render_page(
                 article_url,
-                wait_selector=".tm-comment-thread__comment",
-                timeout=30000,
+                wait_selector=".tm-comment-thread__comment, .tm-comments-wrapper",
+                timeout=15000,
             )
         else:
             html = await self._fetch_page(article_url)
