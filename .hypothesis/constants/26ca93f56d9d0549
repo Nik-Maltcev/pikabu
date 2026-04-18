@@ -1,0 +1,4 @@
+# file: D:\PIKABU\backend\app\api\router.py
+# hypothesis_version: 6.150.2
+
+[0.16, 0.17, 0.25, 0.5, 100, 400, 404, 409, 500, '/analysis/start', '/api', '/reports/{topic_id}', '/topics', 'Habr topic not found', 'Report not found', 'Task not found', 'Topic not found', 'aggregating', 'all', 'both', 'chunk_analysis', 'completed', 'failed', 'habr', 'hot_topics', 'model_dump', 'parsing', 'pending', 'pikabu', 'pikabu,habr', 'pikabu,habr,vcru', 'trending_discussions', 'user_problems', 'vcru', 'Анализ завершён!', 'Ошибка']

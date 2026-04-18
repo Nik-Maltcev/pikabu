@@ -1,4 +1,4 @@
-"""TopicManager — fetches and caches Pikabu communities/tags and Habr flows."""
+"""TopicManager — fetches and caches Pikabu communities/tags, Habr flows, and VC.ru categories."""
 
 import logging
 from datetime import datetime, timezone
@@ -20,6 +20,47 @@ HABR_FLOWS = [
     {"pikabu_id": "habr_management", "name": "Менеджмент", "url": "https://habr.com/ru/flows/management/articles/", "subscribers_count": None, "source": "habr"},
     {"pikabu_id": "habr_top_management", "name": "Топ-менеджмент", "url": "https://habr.com/ru/flows/top_management/articles/", "subscribers_count": None, "source": "habr"},
     {"pikabu_id": "habr_marketing", "name": "Маркетинг", "url": "https://habr.com/ru/flows/marketing/articles/", "subscribers_count": None, "source": "habr"},
+]
+
+VCRU_CATEGORIES = [
+    {"pikabu_id": "vcru_ai", "name": "AI", "url": "https://vc.ru/ai", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_apple", "name": "Apple", "url": "https://vc.ru/apple", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_apps", "name": "Приложения", "url": "https://vc.ru/apps", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_ask", "name": "Вопросы", "url": "https://vc.ru/ask", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_books", "name": "Книги", "url": "https://vc.ru/books", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_chatgpt", "name": "ChatGPT", "url": "https://vc.ru/chatgpt", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_crypto", "name": "Крипто", "url": "https://vc.ru/crypto", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_design", "name": "Дизайн", "url": "https://vc.ru/design", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_dev", "name": "Разработка", "url": "https://vc.ru/dev", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_education", "name": "Образование", "url": "https://vc.ru/education", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_flood", "name": "Флуд", "url": "https://vc.ru/flood", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_food", "name": "Еда", "url": "https://vc.ru/food", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_future", "name": "Будущее", "url": "https://vc.ru/future", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_growth", "name": "Рост", "url": "https://vc.ru/growth", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_hr", "name": "Карьера", "url": "https://vc.ru/hr", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_invest", "name": "Инвестиции", "url": "https://vc.ru/invest", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_legal", "name": "Право", "url": "https://vc.ru/legal", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_life", "name": "Личный опыт", "url": "https://vc.ru/life", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_marketing", "name": "Маркетинг", "url": "https://vc.ru/marketing", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_marketplace", "name": "Маркетплейсы", "url": "https://vc.ru/marketplace", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_media", "name": "Медиа", "url": "https://vc.ru/media", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_migration", "name": "Релокация", "url": "https://vc.ru/migration", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_money", "name": "Деньги", "url": "https://vc.ru/money", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_office", "name": "Офис", "url": "https://vc.ru/office", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_offline", "name": "Офлайн", "url": "https://vc.ru/offline", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_opinions", "name": "Мнения", "url": "https://vc.ru/opinions", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_retail", "name": "Ритейл", "url": "https://vc.ru/retail", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_seo", "name": "SEO", "url": "https://vc.ru/seo", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_services", "name": "Сервисы", "url": "https://vc.ru/services", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_social", "name": "Соцсети", "url": "https://vc.ru/social", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_story", "name": "Истории", "url": "https://vc.ru/story", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_tech", "name": "Технологии", "url": "https://vc.ru/tech", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_telegram", "name": "Telegram", "url": "https://vc.ru/telegram", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_transport", "name": "Транспорт", "url": "https://vc.ru/transport", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_travel", "name": "Путешествия", "url": "https://vc.ru/travel", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_tribuna", "name": "Трибуна", "url": "https://vc.ru/tribuna", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_video", "name": "Видео", "url": "https://vc.ru/video", "subscribers_count": None, "source": "vcru"},
+    {"pikabu_id": "vcru_workdays", "name": "Рабочие будни", "url": "https://vc.ru/workdays", "subscribers_count": None, "source": "vcru"},
 ]
 
 # Pikabu renders /communities via JavaScript, so BeautifulSoup gets empty HTML.
@@ -87,19 +128,25 @@ class TopicManager:
         """Fetch topics filtered by source.
 
         Args:
-            source: "pikabu" (default), "habr", or "both".
+            source: "pikabu" (default), "habr", "vcru", "both", or "all".
         """
-        if source in ("pikabu", "both"):
+        if source in ("pikabu", "both", "all"):
             cached_pikabu = await self._get_cached_topics(source="pikabu")
             if cached_pikabu is None:
                 raw_topics = await self._scrape_communities()
                 await self._upsert_topics(raw_topics, source="pikabu")
                 await self._session.commit()
 
-        if source in ("habr", "both"):
+        if source in ("habr", "both", "all"):
             cached_habr = await self._get_cached_topics(source="habr")
             if cached_habr is None:
                 await self._upsert_topics(HABR_FLOWS, source="habr")
+                await self._session.commit()
+
+        if source in ("vcru", "all"):
+            cached_vcru = await self._get_cached_topics(source="vcru")
+            if cached_vcru is None:
+                await self._upsert_topics(VCRU_CATEGORIES, source="vcru")
                 await self._session.commit()
 
         return await self._all_topics(source=source)
@@ -140,7 +187,11 @@ class TopicManager:
             query = query.where(Topic.source == "pikabu")
         elif source == "habr":
             query = query.where(Topic.source == "habr")
-        # "both" — no filter, return all
+        elif source == "vcru":
+            query = query.where(Topic.source == "vcru")
+        elif source == "both":
+            query = query.where(Topic.source.in_(["pikabu", "habr"]))
+        # "all" — no filter, return all
         result = await self._session.execute(query)
         return list(result.scalars().all())
 

@@ -63,7 +63,7 @@ def _report_to_schema(r: DBReport) -> Report:
 @router.get("/topics", response_model=TopicListResponse)
 async def get_topics(
     search: str = Query(default="", description="Filter topics by name substring"),
-    source: str = Query(default="pikabu", description="Source filter: pikabu, habr, or both"),
+    source: str = Query(default="pikabu", description="Source filter: pikabu, habr, vcru, both, or all"),
     session: AsyncSession = Depends(get_session),
 ) -> TopicListResponse:
     """Return the list of available topics, optionally filtered by search and source."""
@@ -84,13 +84,25 @@ async def start_analysis(
     session: AsyncSession = Depends(get_session),
 ) -> AnalysisStartResponse:
     """Start a new analysis task for the given topic."""
-    # Validate: source="habr" or "both" requires habr_topic_id
     # Validate: source="both" requires habr_topic_id
     if request.source == "both" and request.habr_topic_id is None:
         raise HTTPException(
             status_code=400,
             detail="habr_topic_id is required when source is 'both'",
         )
+
+    # Validate: source="all" requires habr_topic_id and vcru_topic_id
+    if request.source == "all":
+        if request.habr_topic_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="habr_topic_id is required when source is 'all'",
+            )
+        if request.vcru_topic_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="vcru_topic_id is required when source is 'all'",
+            )
 
     # Validate topic exists
     result = await session.execute(
@@ -107,6 +119,14 @@ async def start_analysis(
         )
         if habr_result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Habr topic not found")
+
+    # Validate vcru_topic_id exists if provided
+    if request.vcru_topic_id is not None:
+        vcru_result = await session.execute(
+            select(DBTopic).where(DBTopic.id == request.vcru_topic_id)
+        )
+        if vcru_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="VC.ru topic not found")
 
     # Validate days
     if request.days not in (7, 14, 30):
@@ -128,6 +148,7 @@ async def start_analysis(
                 request.days,
                 source=request.source,
                 habr_topic_id=request.habr_topic_id,
+                vcru_topic_id=request.vcru_topic_id,
             )
         )
 
@@ -221,6 +242,7 @@ async def _run_analysis_background(
     days: int = 30,
     source: str = "pikabu",
     habr_topic_id: int | None = None,
+    vcru_topic_id: int | None = None,
 ) -> None:
     """Run the full analysis pipeline in the background.
 
@@ -231,8 +253,9 @@ async def _run_analysis_background(
         topic_id: Primary topic ID (pikabu topic or habr topic for source="habr").
         task_id: The analysis task UUID.
         days: Number of days to parse.
-        source: "pikabu", "habr", or "both".
-        habr_topic_id: Habr topic ID (required for "habr" and "both" modes).
+        source: "pikabu", "habr", "vcru", "both", or "all".
+        habr_topic_id: Habr topic ID (required for "habr", "both", and "all" modes).
+        vcru_topic_id: VC.ru topic ID (required for "vcru" and "all" modes).
     """
     from app.database import async_session
     from app.services.analyzer import AnalyzerError, AnalyzerService
@@ -240,6 +263,7 @@ async def _run_analysis_background(
     from app.services.chunker import chunk_data
     from app.services.parser import ParserError, ParserService
     from app.services.habr_parser import HabrParserError, HabrParserService
+    from app.services.vcru_parser import VcruParserError, VcruParserService
     from app.models.database import PartialResult as DBPartialResult, Post, Report as DBReport
     from app.models.schemas import PartialResult
     from app.services.pipeline import _update_task, _load_posts_as_dicts, _save_partial_result_to_db
@@ -260,20 +284,26 @@ async def _run_analysis_background(
             # Determine sources label for the report
             if source == "both":
                 sources_label = "pikabu,habr"
+            elif source == "all":
+                sources_label = "pikabu,habr,vcru"
+            elif source == "vcru":
+                sources_label = "vcru"
             else:
                 sources_label = source
 
             try:
                 # Phase 1: Parsing (0% → 50%)
-                if source in ("pikabu", "both"):
+                if source in ("pikabu", "both", "all"):
                     parser = ParserService(session)
-                    stage_label = "Загрузка постов с Pikabu..." if source == "both" else "Загрузка постов с Pikabu..."
+                    stage_label = "Загрузка постов с Pikabu..."
                     await _update_task(session, task, status="parsing", current_stage=stage_label, progress_percent=0)
                     await session.commit()
 
                     async def _pikabu_progress(stage: str, percent: int) -> None:
                         if source == "both":
                             overall = int(percent * 0.25)  # 0-25% for pikabu in "both" mode
+                        elif source == "all":
+                            overall = int(percent * 0.17)  # 0-17% for pikabu in "all" mode
                         else:
                             overall = int(percent * 0.5)
                         post_info = f"Загрузка постов с Pikabu... {percent}%"
@@ -282,17 +312,24 @@ async def _run_analysis_background(
 
                     await parser.parse_topic(topic_id, callback=_pikabu_progress, days=days)
 
-                if source in ("habr", "both"):
+                if source in ("habr", "both", "all"):
                     habr_parser = HabrParserService(session)
                     habr_tid = habr_topic_id if habr_topic_id is not None else topic_id
                     stage_label = "Загрузка статей с Habr..."
-                    base_progress = 25 if source == "both" else 0
+                    if source == "both":
+                        base_progress = 25
+                    elif source == "all":
+                        base_progress = 17
+                    else:
+                        base_progress = 0
                     await _update_task(session, task, status="parsing", current_stage=stage_label, progress_percent=base_progress)
                     await session.commit()
 
                     async def _habr_progress(stage: str, percent: int) -> None:
                         if source == "both":
                             overall = 25 + int(percent * 0.25)  # 25-50% for habr in "both" mode
+                        elif source == "all":
+                            overall = 17 + int(percent * 0.17)  # 17-34% for habr in "all" mode
                         else:
                             overall = int(percent * 0.5)
                         post_info = f"Загрузка статей с Habr... {percent}%"
@@ -300,6 +337,28 @@ async def _run_analysis_background(
                         await session.commit()
 
                     await habr_parser.parse_topic(habr_tid, callback=_habr_progress, days=days)
+
+                if source in ("vcru", "all"):
+                    vcru_parser = VcruParserService(session)
+                    vcru_tid = vcru_topic_id if vcru_topic_id is not None else topic_id
+                    stage_label = "Загрузка статей с VC.ru..."
+                    if source == "all":
+                        base_progress = 34
+                    else:
+                        base_progress = 0
+                    await _update_task(session, task, status="parsing", current_stage=stage_label, progress_percent=base_progress)
+                    await session.commit()
+
+                    async def _vcru_progress(stage: str, percent: int) -> None:
+                        if source == "all":
+                            overall = 34 + int(percent * 0.16)  # 34-50% for vcru in "all" mode
+                        else:
+                            overall = int(percent * 0.5)
+                        post_info = f"Загрузка статей с VC.ru... {percent}%"
+                        await _update_task(session, task, current_stage=post_info, progress_percent=overall)
+                        await session.commit()
+
+                    await vcru_parser.parse_topic(vcru_tid, callback=_vcru_progress, days=days)
 
                 # Phase 2: Chunking + Analysis (50% → 85%)
                 await _update_task(session, task, status="chunk_analysis", current_stage="Подготовка данных для анализа...", progress_percent=50)
@@ -310,6 +369,13 @@ async def _run_analysis_background(
                 if source == "both" and habr_topic_id is not None and habr_topic_id != topic_id:
                     habr_posts = await _load_posts_as_dicts(session, habr_topic_id)
                     posts_data.extend(habr_posts)
+                if source == "all":
+                    if habr_topic_id is not None and habr_topic_id != topic_id:
+                        habr_posts = await _load_posts_as_dicts(session, habr_topic_id)
+                        posts_data.extend(habr_posts)
+                    if vcru_topic_id is not None and vcru_topic_id != topic_id:
+                        vcru_posts = await _load_posts_as_dicts(session, vcru_topic_id)
+                        posts_data.extend(vcru_posts)
 
                 chunks = chunk_data(posts_data)
                 total_chunks = len(chunks)

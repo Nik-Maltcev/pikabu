@@ -39,7 +39,9 @@ async function loadReport() {
 
 function sourcesLabel(sources?: string): string {
   if (!sources) return 'Pikabu'
+  if (sources === 'pikabu,habr,vcru') return 'Pikabu + Habr + VC.ru'
   if (sources === 'pikabu,habr') return 'Pikabu + Habr'
+  if (sources === 'vcru') return 'VC.ru'
   if (sources === 'habr') return 'Habr'
   return 'Pikabu'
 }
@@ -47,11 +49,13 @@ function sourcesLabel(sources?: string): string {
 function sourcesBadgeClass(sources?: string): string {
   if (!sources || sources === 'pikabu') return 'rv-src-badge--pikabu'
   if (sources === 'habr') return 'rv-src-badge--habr'
+  if (sources === 'vcru') return 'rv-src-badge--vcru'
   return 'rv-src-badge--both'
 }
 
 function postPlatformLabel(url: string): string {
   if (url.includes('habr.com')) return 'Открыть на Habr ↗'
+  if (url.includes('vc.ru')) return 'Открыть на VC.ru ↗'
   return 'Открыть на Pikabu ↗'
 }
 
@@ -218,6 +222,11 @@ onMounted(loadReport)
   color: var(--accent);
 }
 
+.rv-src-badge--vcru {
+  background: rgba(255, 152, 0, 0.15);
+  color: #e65100;
+}
+
 @media (prefers-color-scheme: dark) {
   .rv-src-badge--pikabu {
     background: rgba(76, 175, 80, 0.2);
@@ -226,6 +235,10 @@ onMounted(loadReport)
   .rv-src-badge--habr {
     background: rgba(33, 150, 243, 0.2);
     color: #64b5f6;
+  }
+  .rv-src-badge--vcru {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ffb74d;
   }
 }
 

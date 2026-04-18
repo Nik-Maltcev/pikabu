@@ -41,6 +41,7 @@ export interface AnalysisStartRequest {
   topic_id: number
   source?: string
   habr_topic_id?: number
+  vcru_topic_id?: number
 }
 
 export interface AnalysisStartResponse {

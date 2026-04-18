@@ -1,0 +1,4 @@
+# file: D:\PIKABU\backend\app\models\__init__.py
+# hypothesis_version: 6.150.2
+
+['AnalysisTask', 'Base', 'Comment', 'ParseMetadata', 'PartialResult', 'Post', 'Report', 'Topic']

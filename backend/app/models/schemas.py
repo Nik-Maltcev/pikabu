@@ -63,6 +63,7 @@ class AnalysisStartRequest(BaseModel):
     days: int = 30  # 7, 14, or 30
     source: str = "pikabu"
     habr_topic_id: int | None = None
+    vcru_topic_id: int | None = None
 
 
 class AnalysisStartResponse(BaseModel):

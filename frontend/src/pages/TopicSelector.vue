@@ -6,15 +6,17 @@ import type { Topic } from '../types/api'
 
 const router = useRouter()
 
-type SourceMode = 'pikabu' | 'habr' | 'both'
+type SourceMode = 'pikabu' | 'habr' | 'vcru' | 'all'
 
 const sourceMode = ref<SourceMode>('pikabu')
 const topics = ref<Topic[]>([])
 const pikabuTopics = ref<Topic[]>([])
 const habrTopics = ref<Topic[]>([])
+const vcruTopics = ref<Topic[]>([])
 const searchQuery = ref('')
 const selectedTopic = ref<Topic | null>(null)
 const selectedHabrTopic = ref<Topic | null>(null)
+const selectedVcruTopic = ref<Topic | null>(null)
 const selectedDays = ref(30)
 const loading = ref(false)
 const analyzing = ref(false)
@@ -26,19 +28,22 @@ async function loadTopics(search?: string) {
   loading.value = true
   error.value = ''
   try {
-    if (sourceMode.value === 'both') {
-      const [pikabuRes, habrRes] = await Promise.all([
+    if (sourceMode.value === 'all') {
+      const [pikabuRes, habrRes, vcruRes] = await Promise.all([
         getTopics(search || undefined, 'pikabu'),
         getTopics(search || undefined, 'habr'),
+        getTopics(search || undefined, 'vcru'),
       ])
       pikabuTopics.value = pikabuRes?.topics ?? []
       habrTopics.value = habrRes?.topics ?? []
+      vcruTopics.value = vcruRes?.topics ?? []
       topics.value = []
     } else {
       const res = await getTopics(search || undefined, sourceMode.value)
       topics.value = res?.topics ?? []
       pikabuTopics.value = []
       habrTopics.value = []
+      vcruTopics.value = []
     }
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить список тем'
@@ -59,6 +64,7 @@ function switchSource(mode: SourceMode) {
   sourceMode.value = mode
   selectedTopic.value = null
   selectedHabrTopic.value = null
+  selectedVcruTopic.value = null
   searchQuery.value = ''
   loadTopics()
 }
@@ -71,12 +77,16 @@ function selectHabrTopic(topic: Topic) {
   selectedHabrTopic.value = topic
 }
 
+function selectVcruTopic(topic: Topic) {
+  selectedVcruTopic.value = topic
+}
+
 const canStartAnalysis = ref(false)
 watch(
-  [selectedTopic, selectedHabrTopic, sourceMode],
+  [selectedTopic, selectedHabrTopic, selectedVcruTopic, sourceMode],
   () => {
-    if (sourceMode.value === 'both') {
-      canStartAnalysis.value = selectedTopic.value !== null && selectedHabrTopic.value !== null
+    if (sourceMode.value === 'all') {
+      canStartAnalysis.value = selectedTopic.value !== null && selectedHabrTopic.value !== null && selectedVcruTopic.value !== null
     } else {
       canStartAnalysis.value = selectedTopic.value !== null
     }
@@ -89,13 +99,14 @@ async function onStartAnalysis() {
   analyzing.value = true
   error.value = ''
   try {
-    const topicId = sourceMode.value === 'habr'
-      ? selectedTopic.value!.id
-      : selectedTopic.value!.id
-    const habrTopicId = sourceMode.value === 'both'
+    const topicId = selectedTopic.value!.id
+    const habrTopicId = sourceMode.value === 'all'
       ? selectedHabrTopic.value!.id
       : undefined
-    const res = await startAnalysis(topicId, selectedDays.value, sourceMode.value, habrTopicId)
+    const vcruTopicId = sourceMode.value === 'all'
+      ? selectedVcruTopic.value!.id
+      : undefined
+    const res = await startAnalysis(topicId, selectedDays.value, sourceMode.value, habrTopicId, vcruTopicId)
     router.push({
       name: 'analysis',
       params: { taskId: res.task_id },
@@ -117,6 +128,7 @@ function formatSubscribers(count: number | null): string {
 
 function platformLabel(url: string): string {
   if (url.includes('habr.com')) return 'Открыть на Habr ↗'
+  if (url.includes('vc.ru')) return 'Открыть на VC.ru ↗'
   return 'Открыть на Pikabu ↗'
 }
 
@@ -144,14 +156,19 @@ onMounted(() => loadTopics())
       >Habr</button>
       <button
         class="ts-source-btn"
-        :class="{ 'ts-source-btn--active': sourceMode === 'both' }"
-        @click="switchSource('both')"
-      >Pikabu + Habr</button>
+        :class="{ 'ts-source-btn--active': sourceMode === 'vcru' }"
+        @click="switchSource('vcru')"
+      >VC.ru</button>
+      <button
+        class="ts-source-btn"
+        :class="{ 'ts-source-btn--active': sourceMode === 'all' }"
+        @click="switchSource('all')"
+      >Все</button>
     </div>
 
-    <div class="ts-body" :class="{ 'ts-body--both': sourceMode === 'both' }">
+    <div class="ts-body" :class="{ 'ts-body--all': sourceMode === 'all' }">
       <!-- Single source mode -->
-      <template v-if="sourceMode !== 'both'">
+      <template v-if="sourceMode !== 'all'">
         <div class="ts-search-panel">
           <div class="ts-search-wrap">
             <svg class="ts-search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
@@ -186,7 +203,7 @@ onMounted(() => loadTopics())
               <div class="ts-item-left">
                 <span class="ts-item-name">{{ topic.name }}</span>
                 <span v-if="topic.source" class="ts-source-badge" :class="'ts-source-badge--' + topic.source">
-                  {{ topic.source === 'habr' ? 'Habr' : 'Pikabu' }}
+                  {{ topic.source === 'habr' ? 'Habr' : topic.source === 'vcru' ? 'VC.ru' : 'Pikabu' }}
                 </span>
               </div>
               <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
@@ -198,8 +215,8 @@ onMounted(() => loadTopics())
         </div>
       </template>
 
-      <!-- Both mode: two lists side by side -->
-      <template v-if="sourceMode === 'both'">
+      <!-- All mode: three lists side by side -->
+      <template v-if="sourceMode === 'all'">
         <div class="ts-search-panel">
           <h3 class="ts-list-heading">
             <span class="ts-source-badge ts-source-badge--pikabu">Pikabu</span>
@@ -273,6 +290,36 @@ onMounted(() => loadTopics())
             </li>
           </ul>
         </div>
+
+        <div class="ts-search-panel">
+          <h3 class="ts-list-heading">
+            <span class="ts-source-badge ts-source-badge--vcru">VC.ru</span>
+            Категории VC.ru
+          </h3>
+
+          <div v-if="loading && vcruTopics.length === 0" class="ts-loading">
+            <div class="ts-spinner"></div>
+            <span>Загрузка…</span>
+          </div>
+
+          <ul v-else class="ts-list" role="listbox" aria-label="Категории VC.ru">
+            <li
+              v-for="topic in vcruTopics"
+              :key="topic.id"
+              role="option"
+              :aria-selected="selectedVcruTopic?.id === topic.id"
+              class="ts-item"
+              :class="{ 'ts-item--selected': selectedVcruTopic?.id === topic.id }"
+              @click="selectVcruTopic(topic)"
+            >
+              <span class="ts-item-name">{{ topic.name }}</span>
+              <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
+            </li>
+            <li v-if="!loading && vcruTopics.length === 0" class="ts-empty">
+              Категории не найдены
+            </li>
+          </ul>
+        </div>
       </template>
 
       <!-- Details panel -->
@@ -288,7 +335,7 @@ onMounted(() => loadTopics())
           </a>
         </template>
 
-        <template v-if="sourceMode === 'both' && selectedHabrTopic">
+        <template v-if="sourceMode === 'all' && selectedHabrTopic">
           <hr class="ts-divider" />
           <h2 class="ts-detail-title">{{ selectedHabrTopic.name }}</h2>
           <dl class="ts-detail-meta">
@@ -300,9 +347,21 @@ onMounted(() => loadTopics())
           </a>
         </template>
 
-        <template v-if="!selectedTopic && !(sourceMode === 'both' && selectedHabrTopic)">
+        <template v-if="sourceMode === 'all' && selectedVcruTopic">
+          <hr class="ts-divider" />
+          <h2 class="ts-detail-title">{{ selectedVcruTopic.name }}</h2>
+          <dl class="ts-detail-meta">
+            <dt>Подписчики</dt>
+            <dd>{{ selectedVcruTopic.subscribers_count ?? '—' }}</dd>
+          </dl>
+          <a :href="selectedVcruTopic.url" target="_blank" rel="noopener" class="ts-detail-link">
+            Открыть на VC.ru ↗
+          </a>
+        </template>
+
+        <template v-if="!selectedTopic && !(sourceMode === 'all' && (selectedHabrTopic || selectedVcruTopic))">
           <div class="ts-detail-placeholder">
-            <p v-if="sourceMode === 'both'">Выберите по одной теме из каждого списка</p>
+            <p v-if="sourceMode === 'all'">Выберите по одной теме из каждого списка</p>
             <p v-else>Выберите тему из списка слева, чтобы увидеть подробности</p>
           </div>
         </template>
@@ -420,6 +479,11 @@ onMounted(() => loadTopics())
   color: #1565c0;
 }
 
+.ts-source-badge--vcru {
+  background: rgba(255, 152, 0, 0.15);
+  color: #e65100;
+}
+
 @media (prefers-color-scheme: dark) {
   .ts-source-badge--pikabu {
     background: rgba(76, 175, 80, 0.2);
@@ -428,6 +492,10 @@ onMounted(() => loadTopics())
   .ts-source-badge--habr {
     background: rgba(33, 150, 243, 0.2);
     color: #64b5f6;
+  }
+  .ts-source-badge--vcru {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ffb74d;
   }
 }
 
@@ -438,12 +506,18 @@ onMounted(() => loadTopics())
   flex: 1;
 }
 
-.ts-body--both {
-  grid-template-columns: 1fr 1fr 320px;
+.ts-body--all {
+  grid-template-columns: 1fr 1fr 1fr 320px;
+}
+
+@media (max-width: 1200px) {
+  .ts-body--all {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }
 
 @media (max-width: 960px) {
-  .ts-body--both {
+  .ts-body--all {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -452,12 +526,12 @@ onMounted(() => loadTopics())
   .ts-body {
     grid-template-columns: 1fr;
   }
-  .ts-body--both {
+  .ts-body--all {
     grid-template-columns: 1fr;
   }
 }
 
-/* List heading for both mode */
+/* List heading for all mode */
 .ts-list-heading {
   font-size: 16px;
   font-weight: 500;

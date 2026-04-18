@@ -28,10 +28,12 @@ export async function startAnalysis(
   days: number = 30,
   source?: string,
   habrTopicId?: number,
+  vcruTopicId?: number,
 ): Promise<AnalysisStartResponse> {
   const body: Record<string, unknown> = { topic_id: topicId, days }
   if (source) body.source = source
   if (habrTopicId != null) body.habr_topic_id = habrTopicId
+  if (vcruTopicId != null) body.vcru_topic_id = vcruTopicId
   const { data } = await api.post<AnalysisStartResponse>('/analysis/start', body)
   return data
 }
