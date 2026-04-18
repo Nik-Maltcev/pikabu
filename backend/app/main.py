@@ -35,12 +35,25 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def on_startup():
-    """Create database tables if they don't exist."""
+    """Create database tables if they don't exist, add missing columns."""
     from app.database import engine
     from app.models.database import Base
+    from sqlalchemy import text
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Add source columns if they don't exist (for existing DBs without migration)
+        for stmt in [
+            "ALTER TABLE topics ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
+            "ALTER TABLE posts ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
+            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS sources VARCHAR(50) NOT NULL DEFAULT 'pikabu'",
+        ]:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                pass  # Column already exists or DB doesn't support IF NOT EXISTS
+
     logger.info("Database tables ensured.")
 
 
