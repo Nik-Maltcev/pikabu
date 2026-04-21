@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     pikabu_retry_count_5xx: int = 3
     pikabu_retry_delay_5xx: int = 10
 
+    # MiroFish integration
+    mirofish_url: str = "http://localhost:5001"  # URL MiroFish backend
+
     # Gemini API
     gemini_max_retries: int = 3
 

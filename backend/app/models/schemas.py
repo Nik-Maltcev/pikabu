@@ -125,3 +125,29 @@ class PartialResult(BaseModel):
     topics_found: list[HotTopic]
     user_problems: list[UserProblem]
     active_discussions: list[TrendingDiscussion]
+
+
+# --- MiroFish export models ---
+
+
+class MirofishExportRequest(BaseModel):
+    """Request to export parsed data to MiroFish."""
+
+    topic_id: int
+    mirofish_url: str = "http://localhost:5001"
+    simulation_requirement: str
+    project_name: str | None = None
+    source: str | None = None
+    habr_topic_id: int | None = None
+    vcru_topic_id: int | None = None
+
+
+class MirofishExportResponse(BaseModel):
+    """Response after exporting data to MiroFish."""
+
+    success: bool
+    mirofish_project_id: str | None = None
+    posts_count: int = 0
+    comments_count: int = 0
+    message: str = ""
+    error: str | None = None

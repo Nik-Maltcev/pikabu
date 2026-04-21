@@ -17,11 +17,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.config import settings
 from app.models.database import AnalysisTask, Report as DBReport, Topic as DBTopic
 from app.models.schemas import (
     AnalysisStartRequest,
     AnalysisStartResponse,
     AnalysisStatusResponse,
+    MirofishExportRequest,
+    MirofishExportResponse,
     Report,
     ReportListResponse,
     Topic,
@@ -234,6 +237,119 @@ async def get_report(
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return _report_to_schema(report)
+
+
+@router.get("/posts/{topic_id}")
+async def get_posts_by_topic(
+    topic_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Return all posts with comments for a topic (for MiroFish integration).
+
+    Returns raw post data that MiroFish can use to build knowledge graphs.
+    """
+    from app.models.database import Post
+
+    # Validate topic exists
+    topic_result = await session.execute(
+        select(DBTopic).where(DBTopic.id == topic_id)
+    )
+    topic = topic_result.scalar_one_or_none()
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Load posts with comments
+    result = await session.execute(
+        select(Post).where(Post.topic_id == topic_id)
+    )
+    posts = result.scalars().all()
+
+    posts_data = []
+    for post in posts:
+        await session.refresh(post, ["comments"])
+        posts_data.append({
+            "title": post.title,
+            "body": post.body or "",
+            "published_at": post.published_at.isoformat() if post.published_at else "",
+            "rating": post.rating or 0,
+            "comments_count": post.comments_count or 0,
+            "url": post.url or "",
+            "comments": [
+                {
+                    "body": c.body,
+                    "published_at": c.published_at.isoformat() if c.published_at else "",
+                    "rating": c.rating or 0,
+                }
+                for c in post.comments
+            ],
+        })
+
+    return {
+        "topic_id": topic_id,
+        "topic_name": topic.name,
+        "source": topic.source,
+        "posts_count": len(posts_data),
+        "posts": posts_data,
+    }
+
+
+@router.post("/export/mirofish", response_model=MirofishExportResponse)
+async def export_to_mirofish(
+    request: MirofishExportRequest,
+    session: AsyncSession = Depends(get_session),
+) -> MirofishExportResponse:
+    """Export parsed posts to MiroFish for simulation.
+
+    Takes posts from the PIKABU database and sends them to MiroFish API
+    which will build a knowledge graph and run multi-agent simulation.
+    """
+    from app.services.mirofish_sender import MirofishSender, MirofishSendError
+
+    # Validate topic exists
+    result = await session.execute(
+        select(DBTopic).where(DBTopic.id == request.topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    if not request.simulation_requirement.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="simulation_requirement is required",
+        )
+
+    try:
+        sender = MirofishSender(session)
+        mirofish_result = await sender.send_topic(
+            topic_id=request.topic_id,
+            mirofish_url=request.mirofish_url or settings.mirofish_url,
+            simulation_requirement=request.simulation_requirement,
+            project_name=request.project_name,
+            source=request.source,
+            habr_topic_id=request.habr_topic_id,
+            vcru_topic_id=request.vcru_topic_id,
+        )
+
+        data = mirofish_result.get("data", {})
+        return MirofishExportResponse(
+            success=True,
+            mirofish_project_id=data.get("project_id"),
+            posts_count=data.get("posts_count", 0),
+            comments_count=data.get("comments_count", 0),
+            message=f"Данные отправлены в MiroFish. Project: {data.get('project_id', '?')}",
+        )
+
+    except MirofishSendError as exc:
+        logger.error("MiroFish export failed: %s", exc)
+        return MirofishExportResponse(
+            success=False,
+            error=str(exc),
+            message="Ошибка отправки в MiroFish",
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error during MiroFish export: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 async def _run_analysis_background(
