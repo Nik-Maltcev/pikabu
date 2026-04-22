@@ -81,6 +81,95 @@ async def get_topics(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@router.post("/parse/start")
+async def start_parse_only(
+    topic_id: int = Query(...),
+    days: int = Query(default=30),
+    source: str = Query(default="pikabu"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Parse-only: collect posts without LLM analysis.
+
+    Used by MiroFish to get fresh raw data without wasting LLM tokens.
+    Returns immediately, parsing runs in background.
+    """
+    import asyncio
+    from app.models.database import AnalysisTask
+
+    # Validate topic
+    result = await session.execute(
+        select(DBTopic).where(DBTopic.id == topic_id)
+    )
+    topic = result.scalar_one_or_none()
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    if days not in (7, 14, 30):
+        raise HTTPException(status_code=400, detail="days must be 7, 14, or 30")
+
+    # Create task
+    task = AnalysisTask(topic_id=topic_id, status="pending", progress_percent=0)
+    session.add(task)
+    await session.flush()
+    task_id = task.id
+
+    asyncio.create_task(
+        _run_parse_only_background(topic_id, task_id, days, source)
+    )
+
+    await session.commit()
+    return {"task_id": str(task_id), "status": "pending", "mode": "parse_only"}
+
+
+async def _run_parse_only_background(
+    topic_id: int, task_id, days: int, source: str
+):
+    """Parse posts only — no LLM analysis."""
+    from app.database import async_session
+    from app.services.parser import ParserService
+    from app.services.habr_parser import HabrParserService
+    from app.services.vcru_parser import VcruParserService
+    from app.services.pipeline import _update_task
+
+    try:
+        async with async_session() as session:
+            from app.models.database import AnalysisTask
+            result = await session.execute(
+                select(AnalysisTask).where(AnalysisTask.id == task_id)
+            )
+            task = result.scalar_one_or_none()
+            if not task:
+                return
+
+            try:
+                await _update_task(session, task, status="parsing", current_stage="Парсинг...", progress_percent=0)
+                await session.commit()
+
+                async def _progress(stage: str, percent: int):
+                    await _update_task(session, task, current_stage=f"{stage} {percent}%", progress_percent=min(percent, 95))
+                    await session.commit()
+
+                if source in ("pikabu",):
+                    parser = ParserService(session)
+                    await parser.parse_topic(topic_id, callback=_progress, days=days)
+                elif source in ("habr",):
+                    parser = HabrParserService(session)
+                    await parser.parse_topic(topic_id, callback=_progress, days=days)
+                elif source in ("vcru",):
+                    parser = VcruParserService(session)
+                    await parser.parse_topic(topic_id, callback=_progress, days=days)
+
+                await _update_task(session, task, status="completed", current_stage="Парсинг завершён", progress_percent=100)
+                await session.commit()
+
+            except Exception as exc:
+                logger.error("Parse-only failed for topic %s: %s", topic_id, exc, exc_info=True)
+                await _update_task(session, task, status="failed", error_message=str(exc))
+                await session.commit()
+    except Exception:
+        logger.exception("Parse-only background failed for topic %s", topic_id)
+
+
 @router.post("/analysis/start", response_model=AnalysisStartResponse)
 async def start_analysis(
     request: AnalysisStartRequest,
