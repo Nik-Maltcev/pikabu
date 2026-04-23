@@ -331,12 +331,16 @@ async def get_report(
 @router.get("/posts/{topic_id}")
 async def get_posts_by_topic(
     topic_id: int,
+    days: int = Query(default=0, description="Filter posts by last N days (0 = all)"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Return all posts with comments for a topic (for MiroFish integration).
+    """Return posts with comments for a topic (for MiroFish integration).
 
-    Returns raw post data that MiroFish can use to build knowledge graphs.
+    Args:
+        topic_id: Topic ID
+        days: Filter by last N days (7, 14, 30). 0 = return all posts.
     """
+    from datetime import datetime, timezone, timedelta
     from app.models.database import Post
 
     # Validate topic exists
@@ -347,10 +351,13 @@ async def get_posts_by_topic(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    # Load posts with comments
-    result = await session.execute(
-        select(Post).where(Post.topic_id == topic_id)
-    )
+    # Load posts with optional date filter
+    query = select(Post).where(Post.topic_id == topic_id)
+    if days > 0:
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        query = query.where(Post.published_at >= since)
+
+    result = await session.execute(query)
     posts = result.scalars().all()
 
     posts_data = []
