@@ -1,5 +1,7 @@
 """Pydantic models for API request/response and internal data structures."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import UUID
 
@@ -31,6 +33,61 @@ class TrendingDiscussion(BaseModel):
     description: str
     post_url: str
     activity_score: float
+
+
+# --- Niche search sub-models ---
+
+
+class KeyPain(BaseModel):
+    """A key user pain point with frequency and emotional charge."""
+
+    description: str
+    frequency: str  # "Массово" / "Часто" / "Периодически" / "Редко, но метко"
+    emotional_charge: str  # "Высокий" / "Средний"
+    examples: list[str] = []
+
+
+class JTBDAnalysis(BaseModel):
+    """Jobs To Be Done analysis for a specific pain point."""
+
+    pain_description: str
+    situational: str
+    functional: str
+    emotional: str
+    current_solution: str
+
+
+class BusinessIdea(BaseModel):
+    """A concrete business idea with MVP plan."""
+
+    name: str
+    description: str
+    mvp_plan: str
+
+
+class MarketTrend(BaseModel):
+    """A market or technology trend amplifying the problem."""
+
+    name: str
+    description: str
+    monetization_hint: str
+
+
+class NicheReport(BaseModel):
+    """Full niche search report."""
+
+    key_pains: list[KeyPain] = []
+    jtbd_analyses: list[JTBDAnalysis] = []
+    business_ideas: list[BusinessIdea] = []
+    market_trends: list[MarketTrend] = []
+
+
+class NichePartialResult(BaseModel):
+    """Result of analyzing a single chunk in niche_search mode."""
+
+    chunk_index: int
+    key_pains: list[KeyPain] = []
+    jtbd_analyses: list[JTBDAnalysis] = []
 
 
 # --- Topic models ---
@@ -129,61 +186,6 @@ class PartialResult(BaseModel):
     topics_found: list[HotTopic]
     user_problems: list[UserProblem]
     active_discussions: list[TrendingDiscussion]
-
-
-# --- Niche search sub-models ---
-
-
-class KeyPain(BaseModel):
-    """A key user pain point with frequency and emotional charge."""
-
-    description: str
-    frequency: str  # "Массово" / "Часто" / "Периодически" / "Редко, но метко"
-    emotional_charge: str  # "Высокий" / "Средний"
-    examples: list[str] = []
-
-
-class JTBDAnalysis(BaseModel):
-    """Jobs To Be Done analysis for a specific pain point."""
-
-    pain_description: str
-    situational: str
-    functional: str
-    emotional: str
-    current_solution: str
-
-
-class BusinessIdea(BaseModel):
-    """A concrete business idea with MVP plan."""
-
-    name: str
-    description: str
-    mvp_plan: str
-
-
-class MarketTrend(BaseModel):
-    """A market or technology trend amplifying the problem."""
-
-    name: str
-    description: str
-    monetization_hint: str
-
-
-class NicheReport(BaseModel):
-    """Full niche search report."""
-
-    key_pains: list[KeyPain] = []
-    jtbd_analyses: list[JTBDAnalysis] = []
-    business_ideas: list[BusinessIdea] = []
-    market_trends: list[MarketTrend] = []
-
-
-class NichePartialResult(BaseModel):
-    """Result of analyzing a single chunk in niche_search mode."""
-
-    chunk_index: int
-    key_pains: list[KeyPain] = []
-    jtbd_analyses: list[JTBDAnalysis] = []
 
 
 # --- MiroFish export models ---
