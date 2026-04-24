@@ -603,7 +603,7 @@ async def _run_analysis_background(
                         vcru_posts = await _load_posts_as_dicts(session, vcru_topic_id)
                         posts_data.extend(vcru_posts)
 
-                chunks = chunk_data(posts_data)
+                chunks = chunk_data(posts_data, max_tokens=settings.llm_chunk_size)
                 total_chunks = len(chunks)
                 logger.info("Topic %s (source=%s): %d posts, %d chunks", topic_id, source, len(posts_data), total_chunks)
                 for c in chunks:
