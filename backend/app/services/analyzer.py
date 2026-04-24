@@ -388,7 +388,12 @@ class AnalyzerService:
                 logger.error("LLM response %d: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
+            if not content or not content.strip():
+                logger.warning("LLM returned empty content. Full response: %s", json.dumps(data)[:1000])
+                raise ValueError("LLM returned empty response content")
+            logger.info("LLM response: %d chars", len(content))
+            return content
 
     async def analyze_chunk(self, chunk: Chunk, *, analysis_mode: str = "topic_analysis") -> PartialResult | NichePartialResult:
         """Send a chunk to LLM and return a PartialResult or NichePartialResult."""
@@ -473,7 +478,7 @@ class AnalyzerService:
             return {"hot_topics": [], "user_problems": [], "trending_discussions": []}
 
         if max_group_size is None:
-            max_group_size = int(settings.llm_context_window * 0.8)
+            max_group_size = settings.llm_chunk_size
 
         if analysis_mode == "niche_search":
             total_tokens = _estimate_niche_results_tokens(results)
