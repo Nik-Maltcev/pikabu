@@ -48,6 +48,9 @@ async def on_startup():
             "ALTER TABLE topics ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
             "ALTER TABLE posts ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
             "ALTER TABLE reports ADD COLUMN IF NOT EXISTS sources VARCHAR(50) NOT NULL DEFAULT 'pikabu'",
+            "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
+            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
+            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS niche_data JSONB",
         ]:
             try:
                 await conn.execute(text(stmt))
