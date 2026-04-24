@@ -17,9 +17,11 @@ class Settings(BaseSettings):
     # LLM settings (DeepSeek / OpenAI-compatible API)
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com/v1"
-    llm_model: str = "deepseek-chat"
+    llm_model: str = "deepseek-v4-flash"
     llm_max_retries: int = 3
-    llm_context_window: int = 100_000
+    llm_context_window: int = 131_072
+    llm_max_tokens_chunk: int = 4096          # max_tokens для анализа чанков
+    llm_max_tokens_aggregation: int = 4096    # max_tokens для агрегации
 
     # Z.AI / GLM settings
     glm_api_key: str = ""

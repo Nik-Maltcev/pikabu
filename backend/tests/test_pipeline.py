@@ -105,6 +105,12 @@ class _FakeScalarResult:
     def scalar_one_or_none(self):
         return self._value
 
+    def scalars(self):
+        return self
+
+    def first(self):
+        return self._value
+
 
 class _FakeScalarsResult:
     """Mimics SQLAlchemy scalars() result."""

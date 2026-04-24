@@ -37,6 +37,13 @@ Analyze the following chunk of posts and comments data. Identify:
 3. **Active discussions** — posts that generated significant engagement or debate.
    For each discussion provide: title, short description, post_url from the data, and activity_score (0.0 to 1.0).
 
+Ограничения по объёму ответа:
+- topics_found: не более 10 элементов, только наиболее значимые
+- user_problems: не более 5 элементов
+- examples в каждом user_problems: не более 3 цитат
+- active_discussions: не более 5 элементов
+Возвращай только наиболее значимые результаты.
+
 Return your answer as a single JSON object with exactly this structure (no markdown, no extra text):
 {
   "topics_found": [
@@ -67,6 +74,11 @@ mentions_count. Keep the best description. Rank by total mentions descending.
 quotes, removing exact duplicates. Keep the most descriptive problem description.
 3. **trending_discussions** — Deduplicate by post_url. Keep the entry with the \
 highest activity_score. Sort by activity_score descending.
+
+Ограничения по объёму ответа:
+- hot_topics: не более 15 элементов
+- user_problems: не более 10 элементов
+- trending_discussions: не более 10 элементов
 
 Return your answer as a single JSON object with exactly this structure (no markdown, no extra text):
 {
@@ -161,16 +173,19 @@ class AnalyzerService:
             self.base_url = base_url or settings.llm_base_url
             self.model = model or settings.llm_model
 
-    async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM API and return the response text."""
-        logger.info("LLM request: provider=%s, model=%s, prompt_len=%d chars, ~%d tokens",
-                     self.provider, self.model, len(prompt), len(prompt) // 4)
+    async def _call_llm(self, prompt: str, max_tokens: int | None = None) -> str:
+        """Call the LLM API and return the response text.
 
-        max_tokens = 8192
-        if self.provider == "gemini":
-            max_tokens = 65536
-        elif self.provider == "glm":
-            max_tokens = 4096
+        Args:
+            prompt: The prompt to send to the LLM.
+            max_tokens: Maximum tokens for the response. Falls back to
+                ``settings.llm_max_tokens_chunk`` when not provided.
+        """
+        if max_tokens is None:
+            max_tokens = settings.llm_max_tokens_chunk
+
+        logger.info("LLM request: provider=%s, model=%s, prompt_len=%d chars, ~%d tokens, max_tokens=%d",
+                     self.provider, self.model, len(prompt), len(prompt) // 4, max_tokens)
 
         # Force IPv4 for Gemini (Google blocks some IPv6 ranges)
         transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0") if self.provider == "gemini" else None
@@ -198,32 +213,31 @@ class AnalyzerService:
         """Send a chunk to LLM and return a PartialResult."""
         prompt = _build_chunk_prompt(chunk)
         last_error: Exception | None = None
-        max_attempts = self.max_retries if self.provider != "gemini" else 6
 
-        for attempt in range(max_attempts):
+        for attempt in range(self.max_retries):
             try:
-                text = await self._call_llm(prompt)
+                text = await self._call_llm(prompt, max_tokens=settings.llm_max_tokens_chunk)
                 return _parse_partial_result(chunk.index, text)
             except (json.JSONDecodeError, ValueError, KeyError) as exc:
                 last_error = exc
-                logger.warning("Invalid JSON from LLM (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
+                logger.warning("Invalid JSON from LLM (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
             except httpx.HTTPStatusError as exc:
                 last_error = exc
                 if exc.response.status_code == 429:
                     delay = 20 * (attempt + 1)
-                    logger.warning("LLM 429 rate limit (chunk %d, attempt %d/%d), waiting %ds", chunk.index, attempt + 1, max_attempts, delay)
+                    logger.warning("LLM 429 rate limit (chunk %d, attempt %d/%d), waiting %ds", chunk.index, attempt + 1, self.max_retries, delay)
                     await asyncio.sleep(delay)
                     continue
-                logger.warning("LLM API HTTP error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
+                logger.warning("LLM API HTTP error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
             except Exception as exc:
                 last_error = exc
-                logger.warning("LLM error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, max_attempts, exc)
+                logger.warning("LLM error (chunk %d, attempt %d/%d): %s", chunk.index, attempt + 1, self.max_retries, exc)
 
-            if attempt < max_attempts - 1:
+            if attempt < self.max_retries - 1:
                 delay = 2 ** (attempt + 1)
                 await asyncio.sleep(delay)
 
-        raise AnalyzerError(f"LLM unavailable after {max_attempts} attempts for chunk {chunk.index}: {last_error}")
+        raise AnalyzerError(f"LLM unavailable after {self.max_retries} attempts for chunk {chunk.index}: {last_error}")
 
     async def aggregate_results(self, results: list[PartialResult]) -> dict:
         """Aggregate partial results into a final report."""
@@ -235,7 +249,7 @@ class AnalyzerService:
 
         for attempt in range(self.max_retries):
             try:
-                text = await self._call_llm(prompt)
+                text = await self._call_llm(prompt, max_tokens=settings.llm_max_tokens_aggregation)
                 return _parse_aggregation_result(text)
             except (json.JSONDecodeError, ValueError, KeyError) as exc:
                 last_error = exc

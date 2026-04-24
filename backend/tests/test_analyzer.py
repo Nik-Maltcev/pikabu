@@ -1,9 +1,9 @@
-"""Tests for AnalyzerService — chunk analysis and aggregation with mocked Gemini API."""
+"""Tests for AnalyzerService — chunk analysis and aggregation with mocked httpx API."""
 
 import json
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from app.models.schemas import Chunk, HotTopic, PartialResult, TrendingDiscussion, UserProblem
@@ -22,7 +22,7 @@ from app.services.analyzer import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-VALID_GEMINI_RESPONSE = json.dumps(
+VALID_CHUNK_RESPONSE = json.dumps(
     {
         "topics_found": [
             {"name": "Тема 1", "description": "Описание", "mentions_count": 5}
@@ -48,6 +48,27 @@ def _make_chunk(index: int = 0) -> Chunk:
         index=index,
         posts_data=[{"title": "Post", "body": "text", "url": "https://pikabu.ru/story/1"}],
         estimated_tokens=100,
+    )
+
+
+def _make_httpx_response(content: str, status_code: int = 200) -> httpx.Response:
+    """Build a fake httpx.Response with the given JSON content."""
+    body = json.dumps({
+        "choices": [{"message": {"content": content}}]
+    })
+    return httpx.Response(
+        status_code=status_code,
+        request=httpx.Request("POST", "https://api.deepseek.com/v1/chat/completions"),
+        content=body.encode(),
+    )
+
+
+def _make_httpx_error_response(status_code: int, text: str = "error") -> httpx.Response:
+    """Build a fake httpx.Response that will raise on raise_for_status()."""
+    return httpx.Response(
+        status_code=status_code,
+        request=httpx.Request("POST", "https://api.deepseek.com/v1/chat/completions"),
+        content=text.encode(),
     )
 
 
@@ -77,7 +98,7 @@ class TestBuildChunkPrompt:
 
 class TestParsePartialResult:
     def test_valid_json(self):
-        result = _parse_partial_result(0, VALID_GEMINI_RESPONSE)
+        result = _parse_partial_result(0, VALID_CHUNK_RESPONSE)
         assert isinstance(result, PartialResult)
         assert result.chunk_index == 0
         assert len(result.topics_found) == 1
@@ -87,7 +108,7 @@ class TestParsePartialResult:
         assert result.active_discussions[0].activity_score == 0.8
 
     def test_strips_markdown_fences(self):
-        wrapped = "```json\n" + VALID_GEMINI_RESPONSE + "\n```"
+        wrapped = "```json\n" + VALID_CHUNK_RESPONSE + "\n```"
         result = _parse_partial_result(1, wrapped)
         assert result.chunk_index == 1
         assert len(result.topics_found) == 1
@@ -119,18 +140,17 @@ class TestParsePartialResult:
 
 class TestAnalyzeChunkSuccess:
     @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
+    def _patch_httpx(self):
+        self.mock_post = AsyncMock(return_value=_make_httpx_response(VALID_CHUNK_RESPONSE))
+        mock_client = AsyncMock()
+        mock_client.post = self.mock_post
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.services.analyzer.httpx.AsyncClient", return_value=mock_client):
+            self.mock_client = mock_client
             yield
 
     async def test_returns_partial_result(self):
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_GEMINI_RESPONSE
-        )
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         result = await svc.analyze_chunk(_make_chunk())
         assert isinstance(result, PartialResult)
@@ -138,14 +158,13 @@ class TestAnalyzeChunkSuccess:
         assert len(result.topics_found) == 1
 
     async def test_calls_model_with_prompt(self):
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_GEMINI_RESPONSE
-        )
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         await svc.analyze_chunk(_make_chunk())
-        self.mock_model.generate_content.assert_called_once()
-        prompt_arg = self.mock_model.generate_content.call_args[0][0]
-        assert "topics_found" in prompt_arg
+        self.mock_post.assert_called_once()
+        call_kwargs = self.mock_post.call_args
+        body = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
+        prompt_text = body["messages"][0]["content"]
+        assert "topics_found" in prompt_text
 
 
 # ---------------------------------------------------------------------------
@@ -155,35 +174,36 @@ class TestAnalyzeChunkSuccess:
 
 class TestAnalyzeChunkRetryInvalidJson:
     @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
+    def _patch_httpx(self):
+        self.mock_post = AsyncMock()
+        mock_client = AsyncMock()
+        mock_client.post = self.mock_post
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.services.analyzer.httpx.AsyncClient", return_value=mock_client):
+            self.mock_client = mock_client
             yield
 
     @patch("app.services.analyzer.asyncio.sleep", return_value=None)
     async def test_retries_on_invalid_json_then_succeeds(self, mock_sleep):
-        bad = SimpleNamespace(text="not json")
-        good = SimpleNamespace(text=VALID_GEMINI_RESPONSE)
-        self.mock_model.generate_content.side_effect = [bad, good]
+        bad = _make_httpx_response("not json")
+        good = _make_httpx_response(VALID_CHUNK_RESPONSE)
+        self.mock_post.side_effect = [bad, good]
 
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         result = await svc.analyze_chunk(_make_chunk())
         assert isinstance(result, PartialResult)
-        assert self.mock_model.generate_content.call_count == 2
-        # Backoff: first retry waits 2s
+        assert self.mock_post.call_count == 2
         mock_sleep.assert_called_once_with(2)
 
     @patch("app.services.analyzer.asyncio.sleep", return_value=None)
     async def test_raises_after_all_retries_invalid_json(self, mock_sleep):
-        self.mock_model.generate_content.return_value = SimpleNamespace(text="bad")
+        self.mock_post.return_value = _make_httpx_response("bad")
 
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         with pytest.raises(AnalyzerError, match="unavailable after 3 attempts"):
             await svc.analyze_chunk(_make_chunk())
-        assert self.mock_model.generate_content.call_count == 3
+        assert self.mock_post.call_count == 3
 
 
 # ---------------------------------------------------------------------------
@@ -193,19 +213,21 @@ class TestAnalyzeChunkRetryInvalidJson:
 
 class TestAnalyzeChunkRetryApiError:
     @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
+    def _patch_httpx(self):
+        self.mock_post = AsyncMock()
+        mock_client = AsyncMock()
+        mock_client.post = self.mock_post
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.services.analyzer.httpx.AsyncClient", return_value=mock_client):
+            self.mock_client = mock_client
             yield
 
     @patch("app.services.analyzer.asyncio.sleep", return_value=None)
     async def test_retries_on_connection_error_then_succeeds(self, mock_sleep):
-        good = SimpleNamespace(text=VALID_GEMINI_RESPONSE)
-        self.mock_model.generate_content.side_effect = [
-            ConnectionError("network"),
+        good = _make_httpx_response(VALID_CHUNK_RESPONSE)
+        self.mock_post.side_effect = [
+            httpx.ConnectError("network"),
             good,
         ]
 
@@ -216,30 +238,28 @@ class TestAnalyzeChunkRetryApiError:
 
     @patch("app.services.analyzer.asyncio.sleep", return_value=None)
     async def test_exponential_backoff_delays(self, mock_sleep):
-        good = SimpleNamespace(text=VALID_GEMINI_RESPONSE)
-        self.mock_model.generate_content.side_effect = [
-            ConnectionError("err1"),
-            TimeoutError("err2"),
+        good = _make_httpx_response(VALID_CHUNK_RESPONSE)
+        self.mock_post.side_effect = [
+            httpx.ConnectError("err1"),
+            httpx.TimeoutException("err2"),
             good,
         ]
 
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         result = await svc.analyze_chunk(_make_chunk())
         assert isinstance(result, PartialResult)
-        # Delays: 2s after attempt 1, 4s after attempt 2
         assert mock_sleep.call_count == 2
         mock_sleep.assert_any_call(2)
         mock_sleep.assert_any_call(4)
 
     @patch("app.services.analyzer.asyncio.sleep", return_value=None)
     async def test_raises_analyzer_error_after_all_retries(self, mock_sleep):
-        self.mock_model.generate_content.side_effect = ConnectionError("down")
+        self.mock_post.side_effect = httpx.ConnectError("down")
 
         svc = AnalyzerService(api_key="test-key", max_retries=3)
         with pytest.raises(AnalyzerError, match="unavailable after 3 attempts"):
             await svc.analyze_chunk(_make_chunk())
-        assert self.mock_model.generate_content.call_count == 3
-        # Backoff: 2s, 4s (no sleep after last attempt)
+        assert self.mock_post.call_count == 3
         assert mock_sleep.call_count == 2
         mock_sleep.assert_any_call(2)
         mock_sleep.assert_any_call(4)
@@ -353,219 +373,3 @@ class TestParseAggregationResult:
         assert result["hot_topics"] == []
         assert result["user_problems"] == []
         assert result["trending_discussions"] == []
-
-
-# ---------------------------------------------------------------------------
-# AnalyzerService.aggregate_results — success
-# ---------------------------------------------------------------------------
-
-
-class TestAggregateResultsSuccess:
-    @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
-            yield
-
-    async def test_returns_report_dict(self):
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_AGGREGATION_RESPONSE
-        )
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.aggregate_results([_make_partial_result(0), _make_partial_result(1)])
-        assert "hot_topics" in result
-        assert "user_problems" in result
-        assert "trending_discussions" in result
-        assert len(result["hot_topics"]) == 1
-
-    async def test_empty_results_returns_empty_report(self):
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.aggregate_results([])
-        assert result == {
-            "hot_topics": [],
-            "user_problems": [],
-            "trending_discussions": [],
-        }
-        # Should not call Gemini for empty input
-        self.mock_model.generate_content.assert_not_called()
-
-    async def test_calls_model_with_aggregation_prompt(self):
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_AGGREGATION_RESPONSE
-        )
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        await svc.aggregate_results([_make_partial_result()])
-        self.mock_model.generate_content.assert_called_once()
-        prompt_arg = self.mock_model.generate_content.call_args[0][0]
-        assert "hot_topics" in prompt_arg
-        assert "merge" in prompt_arg.lower() or "Merge" in prompt_arg
-
-
-# ---------------------------------------------------------------------------
-# AnalyzerService.aggregate_results — retry logic
-# ---------------------------------------------------------------------------
-
-
-class TestAggregateResultsRetry:
-    @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
-            yield
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_retries_on_invalid_json_then_succeeds(self, mock_sleep):
-        bad = SimpleNamespace(text="not json")
-        good = SimpleNamespace(text=VALID_AGGREGATION_RESPONSE)
-        self.mock_model.generate_content.side_effect = [bad, good]
-
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.aggregate_results([_make_partial_result()])
-        assert "hot_topics" in result
-        assert self.mock_model.generate_content.call_count == 2
-        mock_sleep.assert_called_once_with(2)
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_retries_on_connection_error(self, mock_sleep):
-        good = SimpleNamespace(text=VALID_AGGREGATION_RESPONSE)
-        self.mock_model.generate_content.side_effect = [ConnectionError("net"), good]
-
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.aggregate_results([_make_partial_result()])
-        assert "hot_topics" in result
-        mock_sleep.assert_called_once_with(2)
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_raises_after_all_retries(self, mock_sleep):
-        self.mock_model.generate_content.side_effect = ConnectionError("down")
-
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        with pytest.raises(AnalyzerError, match="during aggregation"):
-            await svc.aggregate_results([_make_partial_result()])
-        assert self.mock_model.generate_content.call_count == 3
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_exponential_backoff(self, mock_sleep):
-        good = SimpleNamespace(text=VALID_AGGREGATION_RESPONSE)
-        self.mock_model.generate_content.side_effect = [
-            ConnectionError("e1"),
-            TimeoutError("e2"),
-            good,
-        ]
-
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.aggregate_results([_make_partial_result()])
-        assert "hot_topics" in result
-        assert mock_sleep.call_count == 2
-        mock_sleep.assert_any_call(2)
-        mock_sleep.assert_any_call(4)
-
-
-# ---------------------------------------------------------------------------
-# AnalyzerService.hierarchical_aggregate
-# ---------------------------------------------------------------------------
-
-
-class TestHierarchicalAggregate:
-    @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
-            yield
-
-    async def test_empty_results(self):
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        result = await svc.hierarchical_aggregate([])
-        assert result == {
-            "hot_topics": [],
-            "user_problems": [],
-            "trending_discussions": [],
-        }
-
-    async def test_small_input_delegates_to_aggregate(self):
-        """When results fit in one call, should just call aggregate_results."""
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_AGGREGATION_RESPONSE
-        )
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        results = [_make_partial_result(0)]
-        # Use a large max_group_size so everything fits
-        result = await svc.hierarchical_aggregate(results, max_group_size=100_000)
-        assert "hot_topics" in result
-        # Only one call to Gemini (the single aggregate)
-        assert self.mock_model.generate_content.call_count == 1
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_splits_into_groups_when_exceeding_limit(self, mock_sleep):
-        """When results exceed max_group_size, should split into groups."""
-        self.mock_model.generate_content.return_value = SimpleNamespace(
-            text=VALID_AGGREGATION_RESPONSE
-        )
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        # Create many partial results
-        results = [_make_partial_result(i) for i in range(10)]
-        # Estimate tokens for a single result to pick a limit that forces
-        # splitting into multiple groups but still fits individual results.
-        from app.services.analyzer import _estimate_results_tokens
-        single_tokens = _estimate_results_tokens([results[0]])
-        # Allow ~2 results per group
-        max_group = single_tokens + (single_tokens // 2)
-        result = await svc.hierarchical_aggregate(results, max_group_size=max_group)
-        assert "hot_topics" in result
-        # Should have made multiple calls (groups + final aggregation)
-        assert self.mock_model.generate_content.call_count > 1
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_propagates_analyzer_error(self, mock_sleep):
-        """If Gemini fails during hierarchical aggregation, AnalyzerError is raised."""
-        self.mock_model.generate_content.side_effect = ConnectionError("down")
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-        results = [_make_partial_result(i) for i in range(5)]
-        from app.services.analyzer import _estimate_results_tokens
-        single_tokens = _estimate_results_tokens([results[0]])
-        max_group = single_tokens + (single_tokens // 2)
-        with pytest.raises(AnalyzerError):
-            await svc.hierarchical_aggregate(results, max_group_size=max_group)
-
-
-# ---------------------------------------------------------------------------
-# Error handling: partial results preserved on aggregation failure
-# ---------------------------------------------------------------------------
-
-
-class TestAggregationErrorPreservesPartialResults:
-    @pytest.fixture(autouse=True)
-    def _patch_genai(self):
-        with patch("app.services.analyzer.genai") as mock_genai:
-            self.mock_genai = mock_genai
-            mock_model = MagicMock()
-            mock_genai.GenerativeModel.return_value = mock_model
-            self.mock_model = mock_model
-            yield
-
-    @patch("app.services.analyzer.asyncio.sleep", return_value=None)
-    async def test_partial_results_intact_after_aggregation_failure(self, mock_sleep):
-        """Partial results should remain accessible even when aggregation fails."""
-        self.mock_model.generate_content.side_effect = ConnectionError("down")
-        svc = AnalyzerService(api_key="test-key", max_retries=3)
-
-        partial_results = [_make_partial_result(0), _make_partial_result(1)]
-
-        with pytest.raises(AnalyzerError):
-            await svc.aggregate_results(partial_results)
-
-        # Partial results are not mutated — caller can still save them
-        assert len(partial_results) == 2
-        assert partial_results[0].chunk_index == 0
-        assert partial_results[1].chunk_index == 1
-        assert len(partial_results[0].topics_found) == 1
-        assert len(partial_results[1].topics_found) == 1

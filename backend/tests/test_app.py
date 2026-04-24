@@ -36,7 +36,7 @@ def test_settings_defaults():
     assert s.pikabu_retry_count_5xx == 3
     assert s.pikabu_retry_delay_5xx == 10
     assert s.gemini_max_retries == 3
-    assert s.gemini_context_window == 1_000_000
+    assert s.llm_context_window == 131_072
 
 
 def test_cors_origins_list_parsing():
