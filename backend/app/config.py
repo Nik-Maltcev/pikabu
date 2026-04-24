@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-v4-flash"
     llm_max_retries: int = 3
     llm_context_window: int = 131_072
-    llm_max_tokens_chunk: int = 4096          # max_tokens для анализа чанков
-    llm_max_tokens_aggregation: int = 4096    # max_tokens для агрегации
+    llm_max_tokens_chunk: int = 8192          # max_tokens для анализа чанков
+    llm_max_tokens_aggregation: int = 8192    # max_tokens для агрегации
 
     # Z.AI / GLM settings
     glm_api_key: str = ""

@@ -29,6 +29,52 @@ class AnalyzerError(Exception):
     """Raised when LLM API is unavailable after all retry attempts."""
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Remove ```json ... ``` wrappers if present."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text[text.index("\n") + 1:]
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
+    return text
+
+
+def _repair_truncated_json(text: str) -> str:
+    """Attempt to repair JSON truncated by max_tokens.
+
+    Strategy: close any open strings, arrays, and objects from the end.
+    """
+    # Try parsing as-is first
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Truncated JSON repair: strip trailing incomplete value, close brackets
+    repaired = text.rstrip()
+    # Remove trailing comma or incomplete key-value
+    while repaired and repaired[-1] in (',', ':', '"', ' ', '\n', '\r', '\t'):
+        if repaired[-1] == '"':
+            # Close the unterminated string
+            repaired += '"'
+            break
+        repaired = repaired[:-1]
+
+    # Count open brackets and close them
+    open_braces = repaired.count('{') - repaired.count('}')
+    open_brackets = repaired.count('[') - repaired.count(']')
+
+    # Remove trailing comma before closing
+    repaired = repaired.rstrip().rstrip(',')
+
+    repaired += ']' * max(open_brackets, 0)
+    repaired += '}' * max(open_braces, 0)
+
+    logger.warning("Repaired truncated JSON: added %d ] and %d }", max(open_brackets, 0), max(open_braces, 0))
+    return repaired
+
+
 CHUNK_ANALYSIS_PROMPT = """\
 You are an expert content analyst for the Russian social platform Pikabu.
 
@@ -116,11 +162,8 @@ def _build_aggregation_prompt(results: list[PartialResult]) -> str:
 
 
 def _parse_aggregation_result(response_text: str) -> dict:
-    text = response_text.strip()
-    if text.startswith("```"):
-        text = text[text.index("\n") + 1:]
-        if text.endswith("```"):
-            text = text[:-3].rstrip()
+    text = _strip_markdown_fences(response_text)
+    text = _repair_truncated_json(text)
     data = json.loads(text)
     return {
         "hot_topics": [HotTopic(**t) for t in data.get("hot_topics", [])],
@@ -138,11 +181,8 @@ def _build_chunk_prompt(chunk: Chunk) -> str:
 
 
 def _parse_partial_result(chunk_index: int, response_text: str) -> PartialResult:
-    text = response_text.strip()
-    if text.startswith("```"):
-        text = text[text.index("\n") + 1:]
-        if text.endswith("```"):
-            text = text[:-3].rstrip()
+    text = _strip_markdown_fences(response_text)
+    text = _repair_truncated_json(text)
     data = json.loads(text)
     return PartialResult(
         chunk_index=chunk_index,
@@ -250,11 +290,8 @@ def _build_niche_chunk_prompt(chunk: Chunk) -> str:
 
 
 def _parse_niche_partial_result(chunk_index: int, response_text: str) -> NichePartialResult:
-    text = response_text.strip()
-    if text.startswith("```"):
-        text = text[text.index("\n") + 1:]
-        if text.endswith("```"):
-            text = text[:-3].rstrip()
+    text = _strip_markdown_fences(response_text)
+    text = _repair_truncated_json(text)
     data = json.loads(text)
     return NichePartialResult(
         chunk_index=chunk_index,
@@ -275,11 +312,8 @@ def _build_niche_aggregation_prompt(results: list[NichePartialResult]) -> str:
 
 
 def _parse_niche_aggregation_result(response_text: str) -> dict:
-    text = response_text.strip()
-    if text.startswith("```"):
-        text = text[text.index("\n") + 1:]
-        if text.endswith("```"):
-            text = text[:-3].rstrip()
+    text = _strip_markdown_fences(response_text)
+    text = _repair_truncated_json(text)
     data = json.loads(text)
     return {
         "key_pains": [KeyPain(**p) for p in data.get("key_pains", [])],
