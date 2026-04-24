@@ -65,7 +65,7 @@ def test_analysis_task_columns():
     assert col_names == {
         "id", "topic_id", "status", "progress_percent",
         "current_stage", "total_chunks", "processed_chunks",
-        "error_message", "created_at", "updated_at",
+        "error_message", "created_at", "updated_at", "analysis_mode",
     }
 
 
@@ -84,6 +84,7 @@ def test_report_columns():
     assert col_names == {
         "id", "topic_id", "task_id",
         "hot_topics", "user_problems", "trending_discussions", "generated_at", "sources",
+        "analysis_mode", "niche_data",
     }
 
 

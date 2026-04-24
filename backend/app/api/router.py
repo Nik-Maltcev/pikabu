@@ -25,6 +25,7 @@ from app.models.schemas import (
     AnalysisStatusResponse,
     MirofishExportRequest,
     MirofishExportResponse,
+    NicheReport,
     Report,
     ReportListResponse,
     Topic,
@@ -52,6 +53,9 @@ def _topic_to_schema(t: DBTopic) -> Topic:
 
 def _report_to_schema(r: DBReport) -> Report:
     """Convert a DB Report to a Pydantic Report schema."""
+    niche = None
+    if r.analysis_mode == "niche_search" and r.niche_data:
+        niche = NicheReport(**r.niche_data) if isinstance(r.niche_data, dict) else r.niche_data
     return Report(
         id=r.id,
         topic_id=r.topic_id,
@@ -60,6 +64,8 @@ def _report_to_schema(r: DBReport) -> Report:
         trending_discussions=r.trending_discussions or [],
         generated_at=r.generated_at,
         sources=r.sources,
+        analysis_mode=r.analysis_mode or "topic_analysis",
+        niche_data=niche,
     )
 
 
@@ -176,6 +182,10 @@ async def start_analysis(
     session: AsyncSession = Depends(get_session),
 ) -> AnalysisStartResponse:
     """Start a new analysis task for the given topic."""
+    # Validate analysis_mode
+    if request.analysis_mode not in ("topic_analysis", "niche_search"):
+        raise HTTPException(status_code=400, detail="analysis_mode must be 'topic_analysis' or 'niche_search'")
+
     # Validate: source="both" requires habr_topic_id
     if request.source == "both" and request.habr_topic_id is None:
         raise HTTPException(
@@ -227,7 +237,7 @@ async def start_analysis(
     # Check for already running analysis
     try:
         # Create the task record first so we can return its id
-        task = AnalysisTask(topic_id=request.topic_id, status="pending", progress_percent=0)
+        task = AnalysisTask(topic_id=request.topic_id, status="pending", progress_percent=0, analysis_mode=request.analysis_mode)
         session.add(task)
         await session.flush()
         task_id = task.id
@@ -239,6 +249,7 @@ async def start_analysis(
                 task_id,
                 request.days,
                 source=request.source,
+                analysis_mode=request.analysis_mode,
                 habr_topic_id=request.habr_topic_id,
                 vcru_topic_id=request.vcru_topic_id,
             )
@@ -284,6 +295,7 @@ async def get_analysis_status(
         processed_chunks=task.processed_chunks,
         error_message=task.error_message,
         report_id=report_id,
+        analysis_mode=task.analysis_mode or "topic_analysis",
     )
 
 
@@ -453,6 +465,7 @@ async def _run_analysis_background(
     task_id: UUID,
     days: int = 30,
     source: str = "pikabu",
+    analysis_mode: str = "topic_analysis",
     habr_topic_id: int | None = None,
     vcru_topic_id: int | None = None,
 ) -> None:
@@ -466,6 +479,7 @@ async def _run_analysis_background(
         task_id: The analysis task UUID.
         days: Number of days to parse.
         source: "pikabu", "habr", "vcru", "both", or "all".
+        analysis_mode: "topic_analysis" or "niche_search".
         habr_topic_id: Habr topic ID (required for "habr", "both", and "all" modes).
         vcru_topic_id: VC.ru topic ID (required for "vcru" and "all" modes).
     """
@@ -599,7 +613,7 @@ async def _run_analysis_background(
 
                 # Analyze each chunk
                 for i, chunk in enumerate(chunks):
-                    pr = await analyzer.analyze_chunk(chunk)
+                    pr = await analyzer.analyze_chunk(chunk, analysis_mode=analysis_mode)
                     partial_results.append(pr)
                     _save_partial_result_to_db(session, task.id, pr)
                     await session.commit()
@@ -621,23 +635,44 @@ async def _run_analysis_background(
                 await _update_task(session, task, status="aggregating", current_stage="Формирование итогового отчёта...", progress_percent=85)
                 await session.commit()
 
-                report_data = await analyzer.hierarchical_aggregate(partial_results)
+                report_data = await analyzer.hierarchical_aggregate(partial_results, analysis_mode=analysis_mode)
 
                 # Save report with sources
                 from datetime import datetime, timezone
-                hot_topics = report_data.get("hot_topics", [])
-                user_problems = report_data.get("user_problems", [])
-                trending = report_data.get("trending_discussions", [])
 
-                db_report = DBReport(
-                    topic_id=topic_id,
-                    task_id=task.id,
-                    hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
-                    user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
-                    trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
-                    generated_at=datetime.now(timezone.utc),
-                    sources=sources_label,
-                )
+                if analysis_mode == "niche_search":
+                    niche_data = {
+                        "key_pains": [p.model_dump() if hasattr(p, "model_dump") else p for p in report_data.get("key_pains", [])],
+                        "jtbd_analyses": [j.model_dump() if hasattr(j, "model_dump") else j for j in report_data.get("jtbd_analyses", [])],
+                        "business_ideas": [b.model_dump() if hasattr(b, "model_dump") else b for b in report_data.get("business_ideas", [])],
+                        "market_trends": [m.model_dump() if hasattr(m, "model_dump") else m for m in report_data.get("market_trends", [])],
+                    }
+                    db_report = DBReport(
+                        topic_id=topic_id,
+                        task_id=task.id,
+                        hot_topics=[],
+                        user_problems=[],
+                        trending_discussions=[],
+                        niche_data=niche_data,
+                        analysis_mode="niche_search",
+                        generated_at=datetime.now(timezone.utc),
+                        sources=sources_label,
+                    )
+                else:
+                    hot_topics = report_data.get("hot_topics", [])
+                    user_problems = report_data.get("user_problems", [])
+                    trending = report_data.get("trending_discussions", [])
+
+                    db_report = DBReport(
+                        topic_id=topic_id,
+                        task_id=task.id,
+                        hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
+                        user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
+                        trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
+                        analysis_mode="topic_analysis",
+                        generated_at=datetime.now(timezone.utc),
+                        sources=sources_label,
+                    )
                 session.add(db_report)
                 await session.commit()
 

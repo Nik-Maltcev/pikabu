@@ -127,6 +127,7 @@ class AnalysisTask(Base):
         "PartialResult", back_populates="task", cascade="all, delete-orphan"
     )
     reports = relationship("Report", back_populates="task")
+    analysis_mode = Column(String(30), nullable=False, default="topic_analysis")
 
     __table_args__ = (
         Index("idx_analysis_tasks_topic_id", "topic_id"),
@@ -174,6 +175,8 @@ class Report(Base):
     )
 
     sources = Column(String(50), nullable=False, default="pikabu")
+    analysis_mode = Column(String(30), nullable=False, default="topic_analysis")
+    niche_data = Column(JSONB, nullable=True)
 
     topic = relationship("Topic", back_populates="reports")
     task = relationship("AnalysisTask", back_populates="reports")

@@ -62,6 +62,7 @@ class AnalysisStartRequest(BaseModel):
     topic_id: int
     days: int = 30  # 7, 14, or 30
     source: str = "pikabu"
+    analysis_mode: str = "topic_analysis"  # "topic_analysis" or "niche_search"
     habr_topic_id: int | None = None
     vcru_topic_id: int | None = None
 
@@ -84,6 +85,7 @@ class AnalysisStatusResponse(BaseModel):
     processed_chunks: int | None
     error_message: str | None
     report_id: int | None
+    analysis_mode: str = "topic_analysis"
 
 
 # --- Report models ---
@@ -99,6 +101,8 @@ class Report(BaseModel):
     trending_discussions: list[TrendingDiscussion]
     generated_at: datetime
     sources: str = "pikabu"
+    analysis_mode: str = "topic_analysis"
+    niche_data: NicheReport | None = None
 
 
 class ReportListResponse(BaseModel):
@@ -125,6 +129,61 @@ class PartialResult(BaseModel):
     topics_found: list[HotTopic]
     user_problems: list[UserProblem]
     active_discussions: list[TrendingDiscussion]
+
+
+# --- Niche search sub-models ---
+
+
+class KeyPain(BaseModel):
+    """A key user pain point with frequency and emotional charge."""
+
+    description: str
+    frequency: str  # "Массово" / "Часто" / "Периодически" / "Редко, но метко"
+    emotional_charge: str  # "Высокий" / "Средний"
+    examples: list[str] = []
+
+
+class JTBDAnalysis(BaseModel):
+    """Jobs To Be Done analysis for a specific pain point."""
+
+    pain_description: str
+    situational: str
+    functional: str
+    emotional: str
+    current_solution: str
+
+
+class BusinessIdea(BaseModel):
+    """A concrete business idea with MVP plan."""
+
+    name: str
+    description: str
+    mvp_plan: str
+
+
+class MarketTrend(BaseModel):
+    """A market or technology trend amplifying the problem."""
+
+    name: str
+    description: str
+    monetization_hint: str
+
+
+class NicheReport(BaseModel):
+    """Full niche search report."""
+
+    key_pains: list[KeyPain] = []
+    jtbd_analyses: list[JTBDAnalysis] = []
+    business_ideas: list[BusinessIdea] = []
+    market_trends: list[MarketTrend] = []
+
+
+class NichePartialResult(BaseModel):
+    """Result of analyzing a single chunk in niche_search mode."""
+
+    chunk_index: int
+    key_pains: list[KeyPain] = []
+    jtbd_analyses: list[JTBDAnalysis] = []
 
 
 # --- MiroFish export models ---
