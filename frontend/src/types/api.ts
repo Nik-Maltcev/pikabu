@@ -20,6 +20,43 @@ export interface TrendingDiscussion {
   activity_score: number
 }
 
+// --- Niche search sub-models ---
+
+export interface KeyPain {
+  description: string
+  frequency: string
+  emotional_charge: string
+  examples: string[]
+}
+
+export interface JTBDAnalysis {
+  pain_description: string
+  situational: string
+  functional: string
+  emotional: string
+  current_solution: string
+}
+
+export interface BusinessIdea {
+  name: string
+  description: string
+  mvp_plan: string
+}
+
+export interface MarketTrend {
+  name: string
+  description: string
+  monetization_hint: string
+}
+
+export interface NicheReport {
+  key_pains: KeyPain[]
+  jtbd_analyses: JTBDAnalysis[]
+  business_ideas: BusinessIdea[]
+  market_trends: MarketTrend[]
+}
+
+
 // --- Topic models ---
 
 export interface Topic {
@@ -40,6 +77,7 @@ export interface TopicListResponse {
 export interface AnalysisStartRequest {
   topic_id: number
   source?: string
+  analysis_mode?: string
   habr_topic_id?: number
   vcru_topic_id?: number
 }
@@ -58,6 +96,7 @@ export interface AnalysisStatusResponse {
   processed_chunks: number | null
   error_message: string | null
   report_id: number | null
+  analysis_mode?: string
 }
 
 // --- Report models ---
@@ -70,6 +109,8 @@ export interface Report {
   trending_discussions: TrendingDiscussion[]
   generated_at: string
   sources?: string
+  analysis_mode?: string
+  niche_data?: NicheReport | null
 }
 
 export interface ReportListResponse {
