@@ -382,13 +382,21 @@ class AnalyzerService:
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.3,
                     "max_tokens": max_tokens,
+                    "reasoning_effort": "none",
                 },
             )
             if response.status_code != 200:
                 logger.error("LLM response %d: %s", response.status_code, response.text[:500])
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            msg = data["choices"][0]["message"]
+            content = msg.get("content") or ""
+            if not content.strip():
+                # Fallback: some models put output in reasoning_content
+                reasoning = msg.get("reasoning_content") or ""
+                if reasoning.strip():
+                    logger.warning("LLM content empty, using reasoning_content (%d chars)", len(reasoning))
+                    content = reasoning
             if not content or not content.strip():
                 logger.warning("LLM returned empty content. Full response: %s", json.dumps(data)[:1000])
                 raise ValueError("LLM returned empty response content")
