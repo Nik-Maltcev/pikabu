@@ -112,16 +112,26 @@ async def _load_posts_as_dicts(session: AsyncSession, topic_id: int) -> list[dic
 def _save_partial_result_to_db(
     session: AsyncSession,
     task_id,
-    result: PartialResult,
+    result,
 ) -> DBPartialResult:
-    """Create a DBPartialResult from a schema PartialResult and add to session."""
-    db_pr = DBPartialResult(
-        task_id=task_id,
-        chunk_index=result.chunk_index,
-        topics_found=[t.model_dump() for t in result.topics_found],
-        user_problems=[p.model_dump() for p in result.user_problems],
-        active_discussions=[d.model_dump() for d in result.active_discussions],
-    )
+    """Create a DBPartialResult from a schema PartialResult or NichePartialResult."""
+    if hasattr(result, 'topics_found'):
+        db_pr = DBPartialResult(
+            task_id=task_id,
+            chunk_index=result.chunk_index,
+            topics_found=[t.model_dump() for t in result.topics_found],
+            user_problems=[p.model_dump() for p in result.user_problems],
+            active_discussions=[d.model_dump() for d in result.active_discussions],
+        )
+    else:
+        # NichePartialResult — store key_pains in topics_found, jtbd in user_problems
+        db_pr = DBPartialResult(
+            task_id=task_id,
+            chunk_index=result.chunk_index,
+            topics_found=[p.model_dump() for p in result.key_pains],
+            user_problems=[j.model_dump() for j in result.jtbd_analyses],
+            active_discussions=[],
+        )
     session.add(db_pr)
     return db_pr
 
