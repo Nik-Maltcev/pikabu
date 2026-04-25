@@ -483,6 +483,8 @@ async def _run_analysis_background(
         habr_topic_id: Habr topic ID (required for "habr", "both", and "all" modes).
         vcru_topic_id: VC.ru topic ID (required for "vcru" and "all" modes).
     """
+    logger.info("Background analysis starting: topic=%s, task=%s, source=%s, mode=%s", topic_id, task_id, source, analysis_mode)
+
     from app.database import async_session
     from app.services.analyzer import AnalyzerError, AnalyzerService
     from app.services.cache import CacheService
@@ -539,6 +541,7 @@ async def _run_analysis_background(
                     await parser.parse_topic(topic_id, callback=_pikabu_progress, days=days)
 
                 if source in ("habr", "both", "all"):
+                    logger.info("Starting Habr parsing for topic %s (habr_topic_id=%s)", topic_id, habr_topic_id)
                     habr_parser = HabrParserService(session)
                     habr_tid = habr_topic_id if habr_topic_id is not None else topic_id
                     stage_label = "Загрузка статей с Habr..."
