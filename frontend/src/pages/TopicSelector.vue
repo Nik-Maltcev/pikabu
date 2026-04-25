@@ -138,8 +138,8 @@ onMounted(() => loadTopics())
 <template>
   <div class="topic-selector">
     <header class="ts-header">
-      <h1 class="ts-title">Topic Analyzer</h1>
-      <p class="ts-subtitle">Выберите источник и тему для анализа контента</p>
+      <h1 class="ts-title">Поиск ниши</h1>
+      <p class="ts-subtitle">Выберите источник и тему для поиска бизнес-ниши</p>
     </header>
 
     <!-- Source mode selector -->
@@ -391,7 +391,7 @@ onMounted(() => loadTopics())
             Запуск…
           </template>
           <template v-else>
-            Начать анализ
+            Найти нишу
           </template>
         </button>
       </aside>

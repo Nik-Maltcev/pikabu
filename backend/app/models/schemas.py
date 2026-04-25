@@ -119,7 +119,7 @@ class AnalysisStartRequest(BaseModel):
     topic_id: int
     days: int = 30  # 7, 14, or 30
     source: str = "pikabu"
-    analysis_mode: str = "topic_analysis"  # "topic_analysis" or "niche_search"
+    analysis_mode: str = "niche_search"  # "niche_search" or "topic_analysis"
     habr_topic_id: int | None = None
     vcru_topic_id: int | None = None
 
