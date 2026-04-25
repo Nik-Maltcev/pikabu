@@ -382,7 +382,7 @@ class AnalyzerService:
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.3,
                     "max_tokens": max_tokens,
-                    "reasoning_effort": "none",
+                    "reasoning_effort": "low",
                 },
             )
             if response.status_code != 200:
