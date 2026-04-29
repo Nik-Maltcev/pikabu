@@ -89,24 +89,6 @@ function formatSubscribers(count: number | null): string {
   return String(count)
 }
 
-function platformLabel(url: string): string {
-  if (url.includes('habr.com')) return 'Открыть на Habr ↗'
-  if (url.includes('vc.ru')) return 'Открыть на VC.ru ↗'
-  return 'Открыть на Pikabu ↗'
-}
-
-function sourceBadgeClass(source?: string): string {
-  if (source === 'habr') return 'ts-source-badge--habr'
-  if (source === 'vcru') return 'ts-source-badge--vcru'
-  return 'ts-source-badge--pikabu'
-}
-
-function sourceLabel(source?: string): string {
-  if (source === 'habr') return 'Habr'
-  if (source === 'vcru') return 'VC.ru'
-  return 'Pikabu'
-}
-
 onMounted(async () => {
   // Generate fingerprint and check remaining limit
   fingerprint.value = await generateFingerprint()
@@ -163,9 +145,6 @@ onMounted(async () => {
           >
             <div class="ts-item-left">
               <span class="ts-item-name">{{ topic.name }}</span>
-              <span v-if="topic.source" class="ts-source-badge" :class="sourceBadgeClass(topic.source)">
-                {{ sourceLabel(topic.source) }}
-              </span>
             </div>
             <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
           </li>
@@ -180,18 +159,9 @@ onMounted(async () => {
         <template v-if="selectedTopic">
           <h2 class="ts-detail-title">{{ selectedTopic.name }}</h2>
           <dl class="ts-detail-meta">
-            <dt>Платформа</dt>
-            <dd>
-              <span class="ts-source-badge" :class="sourceBadgeClass(selectedTopic.source)">
-                {{ sourceLabel(selectedTopic.source) }}
-              </span>
-            </dd>
             <dt>Подписчики</dt>
             <dd>{{ selectedTopic.subscribers_count ?? '—' }}</dd>
           </dl>
-          <a :href="selectedTopic.url" target="_blank" rel="noopener" class="ts-detail-link">
-            {{ platformLabel(selectedTopic.url) }}
-          </a>
           <p class="ts-detail-hint">
             Если эта категория есть на других платформах, данные будут собраны автоматически.
           </p>
@@ -272,47 +242,6 @@ onMounted(async () => {
   font-size: 16px;
   max-width: 600px;
   margin: 0 auto;
-}
-
-/* Source badges */
-.ts-source-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.ts-source-badge--pikabu {
-  background: rgba(76, 175, 80, 0.15);
-  color: #2e7d32;
-}
-
-.ts-source-badge--habr {
-  background: rgba(33, 150, 243, 0.15);
-  color: #1565c0;
-}
-
-.ts-source-badge--vcru {
-  background: rgba(255, 152, 0, 0.15);
-  color: #e65100;
-}
-
-@media (prefers-color-scheme: dark) {
-  .ts-source-badge--pikabu {
-    background: rgba(76, 175, 80, 0.2);
-    color: #81c784;
-  }
-  .ts-source-badge--habr {
-    background: rgba(33, 150, 243, 0.2);
-    color: #64b5f6;
-  }
-  .ts-source-badge--vcru {
-    background: rgba(255, 152, 0, 0.2);
-    color: #ffb74d;
-  }
 }
 
 .ts-body {
