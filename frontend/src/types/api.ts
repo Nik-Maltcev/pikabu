@@ -41,6 +41,13 @@ export interface BusinessIdea {
   name: string
   description: string
   mvp_plan: string
+  demand_level?: string
+  competition_level?: string
+  launch_recommendations?: string[]
+  risks?: string[]
+  positioning?: string
+  search_queries?: string[]
+  entry_difficulty?: string
 }
 
 export interface MarketTrend {

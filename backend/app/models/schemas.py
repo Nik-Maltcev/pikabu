@@ -58,11 +58,18 @@ class JTBDAnalysis(BaseModel):
 
 
 class BusinessIdea(BaseModel):
-    """A concrete business idea with MVP plan."""
+    """A concrete business idea with full analysis."""
 
     name: str
     description: str
     mvp_plan: str
+    demand_level: str = ""  # "Высокий" / "Средний" / "Низкий" — shown free
+    competition_level: str = ""  # "Высокая" / "Средняя" / "Низкая" — shown free
+    launch_recommendations: list[str] = []  # paid
+    risks: list[str] = []  # paid
+    positioning: str = ""  # paid
+    search_queries: list[str] = []  # paid
+    entry_difficulty: str = ""  # "Легко" / "Средне" / "Сложно" — paid
 
 
 class MarketTrend(BaseModel):
