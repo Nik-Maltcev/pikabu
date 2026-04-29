@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTopics, startAnalysis, checkLimit } from '../api/client'
 import { generateFingerprint } from '../utils/fingerprint'
@@ -7,53 +7,71 @@ import type { Topic } from '../types/api'
 
 const router = useRouter()
 
-const topics = ref<Topic[]>([])
+const allTopics = ref<Topic[]>([])
 const searchQuery = ref('')
 const selectedTopic = ref<Topic | null>(null)
 const selectedDays = ref(14)
 const loading = ref(false)
 const analyzing = ref(false)
 const error = ref('')
+const showAllCategories = ref(false)
 
 // Rate limiting
 const fingerprint = ref('')
 const remainingAnalyses = ref(3)
 const limitReached = ref(false)
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
+// Recommended tags
+const recommendedTags = ['Маркетинг', 'IT', 'Бизнес', 'AI']
+
+// Main categories with icons
+const mainCategories = [
+  { icon: '🛒', name: 'Маркетплейсы', desc: 'E-commerce, интернет-магазины' },
+  { icon: '💻', name: 'IT', desc: 'Разработка, SaaS, облачные сервисы' },
+  { icon: '🏠', name: 'Сервис', desc: 'Услуги для бизнеса и людей' },
+  { icon: '🏭', name: 'Бизнес', desc: 'Предпринимательство, стартапы' },
+  { icon: '🍽️', name: 'Еда', desc: 'Доставка, рестораны, HoReCa' },
+  { icon: '💊', name: 'Здоровье', desc: 'Медицина, wellness, фитнес' },
+  { icon: '🏘️', name: 'Инвестиции', desc: 'Финансы, недвижимость' },
+]
+
+const filteredTopics = computed(() => {
+  if (!searchQuery.value) return allTopics.value
+  const q = searchQuery.value.toLowerCase()
+  return allTopics.value.filter(t => t.name.toLowerCase().includes(q))
+})
 
 async function loadTopics(search?: string) {
   loading.value = true
   error.value = ''
   try {
     const res = await getTopics(search || undefined)
-    topics.value = res?.topics ?? []
+    allTopics.value = res?.topics ?? []
   } catch (e: any) {
-    error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить список тем'
+    error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить категории'
   } finally {
     loading.value = false
   }
 }
 
-function onSearchInput() {
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    loadTopics(searchQuery.value)
-  }, 300)
+function selectByName(name: string) {
+  const topic = allTopics.value.find(t => t.name.toLowerCase() === name.toLowerCase())
+  if (topic) {
+    selectedTopic.value = topic
+  } else {
+    searchQuery.value = name
+    showAllCategories.value = true
+  }
 }
 
 function selectTopic(topic: Topic) {
   selectedTopic.value = topic
+  showAllCategories.value = false
 }
 
-const canStartAnalysis = ref(false)
-watch(
-  [selectedTopic, limitReached],
-  () => {
-    canStartAnalysis.value = selectedTopic.value !== null && !limitReached.value
-  },
-  { immediate: true },
-)
+const canStartAnalysis = computed(() => {
+  return selectedTopic.value !== null && !limitReached.value
+})
 
 async function onStartAnalysis() {
   if (!canStartAnalysis.value) return
@@ -62,7 +80,6 @@ async function onStartAnalysis() {
   try {
     const topicId = selectedTopic.value!.id
     const res = await startAnalysis(topicId, selectedDays.value, fingerprint.value)
-    // Update remaining count
     remainingAnalyses.value = Math.max(0, remainingAnalyses.value - 1)
     if (remainingAnalyses.value <= 0) limitReached.value = true
     router.push({
@@ -82,412 +99,608 @@ async function onStartAnalysis() {
   }
 }
 
-function formatSubscribers(count: number | null): string {
-  if (count == null) return '—'
-  if (count >= 1_000_000) return (count / 1_000_000).toFixed(1) + 'M'
-  if (count >= 1_000) return (count / 1_000).toFixed(1) + 'K'
-  return String(count)
-}
-
 onMounted(async () => {
-  // Generate fingerprint and check remaining limit
   fingerprint.value = await generateFingerprint()
   try {
     const limit = await checkLimit(fingerprint.value)
     remainingAnalyses.value = limit.remaining
     limitReached.value = limit.remaining <= 0
-  } catch {
-    // If limit check fails, allow usage (graceful degradation)
-  }
+  } catch {}
   loadTopics()
 })
 </script>
 
 <template>
-  <div class="topic-selector">
-    <header class="ts-header">
-      <h1 class="ts-title">Поиск ниши</h1>
-      <p class="ts-subtitle">Выберите категорию для поиска бизнес-ниши. Если категория есть на нескольких платформах — данные будут собраны со всех.</p>
-    </header>
+  <div class="page">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <span class="nav-brand">NicheFind AI</span>
+        <div class="nav-links">
+          <a class="nav-link nav-link--active">Поиск ниш</a>
+        </div>
+      </div>
+    </nav>
 
-    <div class="ts-body">
-      <!-- Topic list -->
-      <div class="ts-search-panel">
-        <div class="ts-search-wrap">
-          <svg class="ts-search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+    <!-- Main content -->
+    <main class="main">
+      <div class="card">
+        <h1 class="card-title">Выберите категорию бизнеса</h1>
+        <p class="card-desc">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
+
+        <!-- Search -->
+        <div class="search-wrap">
+          <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.08 4.08a.75.75 0 11-1.06 1.06l-4.08-4.08A7 7 0 012 9z" clip-rule="evenodd"/>
           </svg>
           <input
             v-model="searchQuery"
             type="text"
-            class="ts-search-input"
-            placeholder="Поиск по названию категории…"
-            @input="onSearchInput"
+            class="search-input"
+            placeholder="Поиск категорий (например, Кофейня, SaaS...)"
+            @focus="showAllCategories = true"
           />
         </div>
 
-        <div v-if="error" class="ts-error" role="alert">{{ error }}</div>
-
-        <div v-if="loading && topics.length === 0" class="ts-loading">
-          <div class="ts-spinner"></div>
-          <span>Загрузка категорий…</span>
+        <!-- Recommended tags -->
+        <div class="tags-row">
+          <span class="tags-label">✨ ИИ РЕКОМЕНДУЕТ:</span>
+          <button
+            v-for="tag in recommendedTags"
+            :key="tag"
+            class="tag-chip"
+            :class="{ 'tag-chip--active': selectedTopic?.name === tag }"
+            @click="selectByName(tag)"
+          >{{ tag }}</button>
         </div>
 
-        <ul v-else class="ts-list" role="listbox" aria-label="Список категорий">
-          <li
-            v-for="topic in topics"
-            :key="topic.id"
-            role="option"
-            :aria-selected="selectedTopic?.id === topic.id"
-            class="ts-item"
-            :class="{ 'ts-item--selected': selectedTopic?.id === topic.id }"
-            @click="selectTopic(topic)"
+        <!-- Category cards grid -->
+        <div v-if="!showAllCategories" class="categories-grid">
+          <button
+            v-for="cat in mainCategories"
+            :key="cat.name"
+            class="cat-card"
+            :class="{ 'cat-card--selected': selectedTopic?.name === cat.name }"
+            @click="selectByName(cat.name)"
           >
-            <div class="ts-item-left">
-              <span class="ts-item-name">{{ topic.name }}</span>
+            <div class="cat-icon">{{ cat.icon }}</div>
+            <div class="cat-info">
+              <span class="cat-name">{{ cat.name }}</span>
+              <span class="cat-desc">{{ cat.desc }}</span>
             </div>
-            <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
-          </li>
-          <li v-if="!loading && topics.length === 0" class="ts-empty">
-            Категории не найдены
-          </li>
-        </ul>
-      </div>
+          </button>
+          <button class="cat-card cat-card--all" @click="showAllCategories = true">
+            <div class="cat-icon">📋</div>
+            <div class="cat-info">
+              <span class="cat-name">Все категории</span>
+              <span class="cat-desc">Показать полный список</span>
+            </div>
+          </button>
+        </div>
 
-      <!-- Details panel -->
-      <aside class="ts-details-panel">
-        <template v-if="selectedTopic">
-          <h2 class="ts-detail-title">{{ selectedTopic.name }}</h2>
-          <dl class="ts-detail-meta">
-            <dt>Подписчики</dt>
-            <dd>{{ selectedTopic.subscribers_count ?? '—' }}</dd>
-          </dl>
-          <p class="ts-detail-hint">
-            Если эта категория есть на других платформах, данные будут собраны автоматически.
-          </p>
-        </template>
-
-        <template v-if="!selectedTopic">
-          <div class="ts-detail-placeholder">
-            <p>Выберите категорию из списка слева, чтобы увидеть подробности</p>
+        <!-- Full list (shown on search or "all") -->
+        <div v-if="showAllCategories" class="full-list">
+          <div v-if="loading" class="list-loading">
+            <div class="spinner"></div>
+            <span>Загрузка…</span>
           </div>
-        </template>
+          <ul v-else class="topic-list">
+            <li
+              v-for="topic in filteredTopics"
+              :key="topic.id"
+              class="topic-item"
+              :class="{ 'topic-item--selected': selectedTopic?.id === topic.id }"
+              @click="selectTopic(topic)"
+            >
+              <span class="topic-name">{{ topic.name }}</span>
+            </li>
+            <li v-if="filteredTopics.length === 0" class="topic-empty">
+              Категории не найдены
+            </li>
+          </ul>
+          <button class="back-btn" @click="showAllCategories = false">← Назад к основным</button>
+        </div>
 
-        <div class="ts-period">
-          <label class="ts-period-label">Период анализа:</label>
-          <div class="ts-period-buttons">
+        <!-- Selected + Period + Action -->
+        <div v-if="selectedTopic" class="selection-bar">
+          <div class="selection-info">
+            <span class="selection-label">Выбрано:</span>
+            <span class="selection-name">{{ selectedTopic.name }}</span>
+          </div>
+
+          <div class="period-toggle">
             <button
-              class="ts-period-btn"
-              :class="{ 'ts-period-btn--active': selectedDays === 14 }"
+              class="period-btn"
+              :class="{ 'period-btn--active': selectedDays === 14 }"
               @click="selectedDays = 14"
-            >
-              14 дней
-            </button>
+            >14 дней</button>
             <button
-              class="ts-period-btn ts-period-btn--paid"
-              :class="{ 'ts-period-btn--active': selectedDays === 30 }"
+              class="period-btn period-btn--paid"
+              :class="{ 'period-btn--active': selectedDays === 30 }"
               @click="selectedDays = 30"
-            >
-              30 дней <span class="ts-paid-tag">₽</span>
-            </button>
+            >30 дней <span class="paid-badge">₽</span></button>
           </div>
         </div>
 
-        <!-- Limit indicator -->
-        <div v-if="limitReached" class="ts-limit-reached">
-          <div class="ts-limit-icon">🔒</div>
-          <p>Лимит бесплатных анализов исчерпан</p>
-          <p class="ts-limit-hint">Оплатите для продолжения работы</p>
+        <!-- Error -->
+        <div v-if="error" class="error-msg">{{ error }}</div>
+
+        <!-- Limit -->
+        <div v-if="limitReached" class="limit-block">
+          🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
         </div>
 
-        <div v-else class="ts-limit-info">
-          Осталось бесплатных анализов: <strong>{{ remainingAnalyses }}</strong>
+        <!-- Action button -->
+        <div class="action-row">
+          <div v-if="!limitReached" class="remaining">
+            Бесплатных анализов: <strong>{{ remainingAnalyses }}</strong>
+          </div>
+          <button
+            class="start-btn"
+            :disabled="!canStartAnalysis || analyzing"
+            @click="onStartAnalysis"
+          >
+            <template v-if="analyzing">
+              <div class="spinner spinner--sm"></div>
+              Анализируем…
+            </template>
+            <template v-else>
+              Далее →
+            </template>
+          </button>
         </div>
+      </div>
+    </main>
 
-        <button
-          class="ts-btn"
-          :disabled="!canStartAnalysis || analyzing"
-          @click="onStartAnalysis"
-        >
-          <template v-if="analyzing">
-            <div class="ts-spinner ts-spinner--sm"></div>
-            Запуск…
-          </template>
-          <template v-else>
-            Найти нишу
-          </template>
-        </button>
-      </aside>
-    </div>
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-container">
+        <span class="footer-copy">© 2025 NicheFind AI. Профессиональная аналитика бизнес-ниш.</span>
+      </div>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-.topic-selector {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 40px 24px;
+.page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: #f8f9fa;
 }
 
-.ts-header {
-  text-align: center;
-  margin-bottom: 24px;
+/* Navbar */
+.navbar {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
 }
 
-.ts-title {
-  font-size: 32px;
+.nav-container {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -0.5px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-link {
+  font-size: 14px;
+  color: #666;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-link--active {
+  color: #00bfa5;
+  font-weight: 500;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 48px;
+  max-width: 900px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.card-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111;
   margin: 0 0 8px;
 }
 
-.ts-subtitle {
-  color: var(--text);
-  font-size: 16px;
-  max-width: 600px;
-  margin: 0 auto;
+.card-desc {
+  font-size: 15px;
+  color: #666;
+  margin: 0 0 28px;
 }
 
-.ts-body {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
-  flex: 1;
-}
-
-@media (max-width: 768px) {
-  .ts-body {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Search panel */
-.ts-search-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.ts-search-wrap {
+/* Search */
+.search-wrap {
   position: relative;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.ts-search-icon {
+.search-icon {
   position: absolute;
-  left: 12px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text);
-  pointer-events: none;
+  color: #999;
 }
 
-.ts-search-input {
+.search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px 10px 38px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-h);
+  padding: 14px 16px 14px 44px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
   font-size: 15px;
-  font-family: var(--sans);
+  font-family: inherit;
+  color: #111;
+  background: #fafafa;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
 
-.ts-search-input:focus {
-  border-color: var(--accent);
+.search-input:focus {
+  border-color: #00bfa5;
+  background: #fff;
 }
 
-/* Topic list */
-.ts-list {
+.search-input::placeholder {
+  color: #aaa;
+}
+
+/* Tags */
+.tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.tags-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.tag-chip {
+  padding: 6px 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.tag-chip:hover {
+  border-color: #00bfa5;
+  color: #00bfa5;
+}
+
+.tag-chip--active {
+  background: #00bfa5;
+  color: #fff;
+  border-color: #00bfa5;
+}
+
+/* Category cards */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.cat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.cat-card:hover {
+  border-color: #00bfa5;
+  box-shadow: 0 2px 8px rgba(0, 191, 165, 0.08);
+}
+
+.cat-card--selected {
+  border-color: #00bfa5;
+  background: rgba(0, 191, 165, 0.04);
+}
+
+.cat-card--all {
+  border-style: dashed;
+}
+
+.cat-icon {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.cat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+.cat-desc {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Full list */
+.full-list {
+  margin-bottom: 24px;
+}
+
+.topic-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: 300px;
   overflow-y: auto;
-  max-height: 60vh;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid #eee;
+  border-radius: 12px;
 }
 
-.ts-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.topic-item {
   padding: 12px 16px;
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.1s;
+  font-size: 14px;
+  color: #333;
 }
 
-.ts-item:last-child {
+.topic-item:last-child {
   border-bottom: none;
 }
 
-.ts-item:hover {
-  background: var(--accent-bg);
+.topic-item:hover {
+  background: #f0fdf9;
 }
 
-.ts-item--selected {
-  background: var(--accent-bg);
-  border-left: 3px solid var(--accent);
+.topic-item--selected {
+  background: #f0fdf9;
+  font-weight: 500;
+  color: #00bfa5;
 }
 
-.ts-item-left {
+.topic-empty {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.back-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.back-btn:hover {
+  color: #00bfa5;
+}
+
+/* Selection bar */
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #f0fdf9;
+  border: 1px solid #d1fae5;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.selection-info {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.ts-item-name {
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-.ts-item-subs {
+.selection-label {
   font-size: 13px;
-  color: var(--text);
-  white-space: nowrap;
-  margin-left: 12px;
+  color: #666;
 }
 
-.ts-empty {
-  padding: 24px;
-  text-align: center;
-  color: var(--text);
+.selection-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
 }
 
-/* Details panel */
-.ts-details-panel {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
+.period-toggle {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-self: start;
-  position: sticky;
-  top: 24px;
+  gap: 6px;
 }
 
-.ts-detail-title {
-  font-size: 20px;
-  margin: 0;
-}
-
-.ts-detail-meta {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: 14px;
-}
-
-.ts-detail-meta dt {
-  color: var(--text);
-}
-
-.ts-detail-meta dd {
-  margin: 0;
-  color: var(--text-h);
-  font-weight: 500;
-}
-
-.ts-detail-link {
-  font-size: 14px;
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.ts-detail-link:hover {
-  text-decoration: underline;
-}
-
-.ts-detail-hint {
+.period-btn {
+  padding: 8px 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
   font-size: 13px;
-  color: var(--text);
-  margin: 0;
-  padding: 8px 12px;
-  background: var(--accent-bg);
-  border-radius: 6px;
+  color: #333;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
 }
 
-.ts-detail-placeholder {
-  color: var(--text);
-  font-size: 14px;
-  text-align: center;
-  padding: 16px 0;
+.period-btn:hover {
+  border-color: #00bfa5;
 }
 
-/* Button */
-.ts-btn {
+.period-btn--active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.period-btn--paid .paid-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #00bfa5;
   color: #fff;
-  font-size: 15px;
-  font-family: var(--sans);
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  margin-top: auto;
-}
-
-.ts-btn:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.ts-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 /* Error */
-.ts-error {
+.error-msg {
   background: #fef2f2;
   color: #b91c1c;
   border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: 10px;
+  padding: 12px 16px;
   font-size: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .ts-error {
-    background: rgba(185, 28, 28, 0.15);
-    color: #fca5a5;
-    border-color: rgba(185, 28, 28, 0.3);
-  }
+/* Limit */
+.limit-block {
+  background: #fef9e7;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #92400e;
+  margin-bottom: 16px;
 }
 
-/* Loading / spinner */
-.ts-loading {
+/* Action row */
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remaining {
+  font-size: 13px;
+  color: #888;
+}
+
+.remaining strong {
+  color: #00bfa5;
+}
+
+.start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.start-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.start-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Loading */
+.list-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 40px;
-  color: var(--text);
+  color: #888;
 }
 
-.ts-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e5e5;
+  border-top-color: #00bfa5;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
 
-.ts-spinner--sm {
+.spinner--sm {
   width: 14px;
   height: 14px;
 }
@@ -496,105 +709,50 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* Period selector */
-.ts-period {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Footer */
+.footer {
+  padding: 20px 24px;
+  border-top: 1px solid #eee;
+  background: #fff;
 }
 
-.ts-period-label {
-  font-size: 14px;
-  color: var(--text);
+.footer-container {
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
-.ts-period-buttons {
-  display: flex;
-  gap: 6px;
-}
-
-.ts-period-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-h);
-  font-size: 14px;
-  font-family: var(--sans);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.ts-period-btn:hover {
-  background: var(--accent-bg);
-}
-
-.ts-period-btn--active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.ts-period-btn--active:hover {
-  opacity: 0.9;
-}
-
-.ts-period-btn--paid {
-  position: relative;
-}
-
-.ts-paid-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-/* Limit indicator */
-.ts-limit-info {
+.footer-copy {
   font-size: 13px;
-  color: var(--text);
-  text-align: center;
-  padding: 8px 0;
+  color: #999;
 }
 
-.ts-limit-info strong {
-  color: var(--accent);
-}
+/* Responsive */
+@media (max-width: 768px) {
+  .card {
+    padding: 24px;
+  }
 
-.ts-limit-reached {
-  text-align: center;
-  padding: 16px;
-  background: rgba(185, 28, 28, 0.08);
-  border: 1px solid rgba(185, 28, 28, 0.2);
-  border-radius: 8px;
-}
+  .card-title {
+    font-size: 22px;
+  }
 
-.ts-limit-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
-}
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
 
-.ts-limit-reached p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-h);
-  font-weight: 500;
-}
+  .selection-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.ts-limit-hint {
-  font-size: 13px !important;
-  color: var(--text) !important;
-  font-weight: 400 !important;
-  margin-top: 4px !important;
+  .action-row {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .start-btn {
+    justify-content: center;
+  }
 }
 </style>

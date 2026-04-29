@@ -10,616 +10,450 @@ function goToApp() {
 
 <template>
   <div class="landing">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <span class="nav-brand">NicheFind AI</span>
+        <div class="nav-links">
+          <a class="nav-link nav-link--active">Поиск ниш</a>
+          <a class="nav-link">Тарифы</a>
+        </div>
+        <button class="nav-cta" @click="goToApp">Войти</button>
+      </div>
+    </nav>
+
     <!-- Hero -->
     <section class="hero">
-      <div class="hero-container">
-        <div class="hero-badge">AI-аналитика ниш</div>
-        <h1 class="hero-title">
-          Найдите прибыльную нишу<br/>
-          <span class="hero-highlight">до того, как вложите деньги</span>
-        </h1>
-        <p class="hero-desc">
-          Сервис анализирует тысячи обсуждений реальных людей и находит ниши, 
-          где есть спрос, но мало конкурентов. Без догадок — только данные.
-        </p>
-        <div class="hero-actions">
-          <button class="btn-primary" @click="goToApp">
-            Найти нишу бесплатно
-          </button>
-          <span class="hero-hint">Первые 3–5 ниш — бесплатно</span>
-        </div>
+      <h1 class="hero-title">
+        Найдите прибыльную нишу для<br/>вашего бизнеса за 5 минут<br/>с помощью ИИ
+      </h1>
+      <p class="hero-desc">
+        Мощный алгоритм анализирует тысячи трендов, поисковых запросов и данных конкурентов, чтобы выдать вам готовый план действий.
+      </p>
+      <button class="hero-btn" @click="goToApp">Начать поиск</button>
 
-        <div class="hero-stats">
-          <div class="stat">
-            <span class="stat-value">10 000+</span>
-            <span class="stat-label">обсуждений анализируется</span>
-          </div>
-          <div class="stat">
-            <span class="stat-value">3 платформы</span>
-            <span class="stat-label">Pikabu · Habr · VC.ru</span>
-          </div>
-          <div class="stat">
-            <span class="stat-value">~5 мин</span>
-            <span class="stat-label">до первых результатов</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Problem -->
-    <section class="section problem">
-      <div class="container">
-        <h2 class="section-title">Знакомо?</h2>
-        <div class="problem-grid">
-          <div class="problem-card">
-            <div class="problem-icon">🤔</div>
-            <p>Хочу начать бизнес, но не знаю какую нишу выбрать</p>
-          </div>
-          <div class="problem-card">
-            <div class="problem-icon">📊</div>
-            <p>Гуглю часами, но не понимаю — есть ли реальный спрос</p>
-          </div>
-          <div class="problem-card">
-            <div class="problem-icon">💸</div>
-            <p>Боюсь вложить деньги в идею, которая никому не нужна</p>
-          </div>
-          <div class="problem-card">
-            <div class="problem-icon">🏃</div>
-            <p>Конкуренты уже заняли всё — или мне так кажется?</p>
+      <!-- Dashboard mockup -->
+      <div class="hero-visual">
+        <div class="visual-card">
+          <div class="visual-bar"></div>
+          <div class="visual-bar visual-bar--short"></div>
+          <div class="visual-bar visual-bar--med"></div>
+          <div class="visual-dots">
+            <span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
       </div>
     </section>
 
     <!-- How it works -->
-    <section class="section how">
+    <section class="section">
       <div class="container">
         <h2 class="section-title">Как это работает</h2>
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <h3>Выберите категорию</h3>
-            <p>Маркетинг, IT, еда, путешествия — выберите то, что вам интересно. Или просто посмотрите все.</p>
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-icon">📊</div>
+            <h3>Сбор данных</h3>
+            <p>Мы агрегируем данные из сотен источников: поисковые тренды, соцсети, маркетплейсы и открытые базы данных.</p>
           </div>
-          <div class="step-arrow">→</div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <h3>AI анализирует данные</h3>
-            <p>Система собирает тысячи постов и комментариев, находит боли людей, незакрытые потребности и тренды.</p>
+          <div class="step-card">
+            <div class="step-icon">🧠</div>
+            <h3>ИИ-анализ</h3>
+            <p>Наша нейросеть оценивает конкуренцию, потенциальный спрос, маржинальность и риски для каждой ниши.</p>
           </div>
-          <div class="step-arrow">→</div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <h3>Получите ниши</h3>
-            <p>Готовый список ниш с оценкой спроса, конкуренции и конкретными идеями для запуска.</p>
+          <div class="step-card">
+            <div class="step-icon">📄</div>
+            <h3>Готовый отчёт</h3>
+            <p>Вы получите структурированный отчёт с рекомендациями, целевой аудиторией и планом запуска.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- What you get -->
-    <section class="section value">
+    <!-- Benefits -->
+    <section class="section section--gray">
       <div class="container">
-        <h2 class="section-title">Что вы получите</h2>
-        <div class="value-grid">
-          <div class="value-col value-col--free">
-            <div class="value-badge value-badge--free">Бесплатно</div>
-            <h3>Превью отчёта</h3>
-            <ul class="value-list">
-              <li class="value-item value-item--included">3–5 лучших ниш</li>
-              <li class="value-item value-item--included">Краткий потенциал каждой</li>
-              <li class="value-item value-item--included">Уровень спроса</li>
-              <li class="value-item value-item--locked">Полный список ниш</li>
-              <li class="value-item value-item--locked">Подробный анализ</li>
-              <li class="value-item value-item--locked">Рекомендации по запуску</li>
-              <li class="value-item value-item--locked">Оценка рисков</li>
-              <li class="value-item value-item--locked">Поисковые запросы</li>
-            </ul>
+        <h2 class="section-title">Преимущества для старта</h2>
+        <div class="benefits-grid">
+          <div class="benefit-card benefit-card--large">
+            <div class="benefit-icon">⏱️</div>
+            <h4>Экономия времени</h4>
+            <p>Вместо недель ручного ресёрча вы получаете результат за минуты. Фокусируйтесь на продукте, а не на поиске данных.</p>
+            <div class="benefit-tags">
+              <span class="btag">Быстро</span>
+              <span class="btag">Точно</span>
+            </div>
           </div>
-          <div class="value-col value-col--paid">
-            <div class="value-badge value-badge--paid">Полный отчёт</div>
-            <h3>Всё для старта</h3>
-            <ul class="value-list">
-              <li class="value-item value-item--included">Все найденные ниши</li>
-              <li class="value-item value-item--included">Детальный анализ каждой</li>
-              <li class="value-item value-item--included">JTBD-анализ аудитории</li>
-              <li class="value-item value-item--included">Идеи позиционирования</li>
-              <li class="value-item value-item--included">MVP-план запуска</li>
-              <li class="value-item value-item--included">Оценка конкуренции</li>
-              <li class="value-item value-item--included">Рыночные тренды</li>
-              <li class="value-item value-item--included">Ключевые запросы</li>
-            </ul>
-            <div class="value-price">от 299 ₽</div>
+          <div class="benefit-card benefit-card--large">
+            <div class="benefit-icon">🛡️</div>
+            <h4>Снижение рисков</h4>
+            <p>Объективная оценка на основе данных, а не интуиции. Узнайте реальный спрос до вложений.</p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Social proof -->
-    <section class="section proof">
-      <div class="container">
-        <h2 class="section-title">Почему это работает</h2>
-        <div class="proof-grid">
-          <div class="proof-card">
-            <div class="proof-icon">💬</div>
-            <h4>Реальные данные</h4>
-            <p>Анализируем не абстрактные тренды, а конкретные жалобы и запросы живых людей на форумах.</p>
+          <div class="benefit-card">
+            <div class="benefit-icon">📈</div>
+            <h4>Глубокая аналитика</h4>
           </div>
-          <div class="proof-card">
-            <div class="proof-icon">🎯</div>
-            <h4>Точечный анализ</h4>
-            <p>AI выделяет боли, которые люди описывают своими словами — это и есть незакрытый спрос.</p>
-          </div>
-          <div class="proof-card">
-            <div class="proof-icon">⚡</div>
-            <h4>Быстро и дёшево</h4>
-            <p>Вместо недель ручного ресёрча — готовый отчёт за 5 минут. Дешевле одного часа фрилансера.</p>
+          <div class="benefit-card">
+            <div class="benefit-icon">🔄</div>
+            <h4>Свежие тренды</h4>
           </div>
         </div>
       </div>
     </section>
 
     <!-- CTA -->
-    <section class="section cta">
-      <div class="container cta-container">
-        <h2 class="cta-title">Готовы найти свою нишу?</h2>
-        <p class="cta-desc">Первые результаты — бесплатно. Без регистрации.</p>
-        <button class="btn-primary btn-primary--lg" @click="goToApp">
-          Начать поиск ниши
-        </button>
+    <section class="section cta-section">
+      <div class="container cta-block">
+        <h2>Готовы найти свою нишу?</h2>
+        <p>Первые результаты — бесплатно. Без регистрации.</p>
+        <button class="hero-btn" @click="goToApp">Начать поиск ниши</button>
       </div>
     </section>
 
     <!-- Footer -->
     <footer class="footer">
-      <div class="container footer-inner">
-        <span class="footer-brand">NicheFind</span>
-        <span class="footer-copy">© 2025</span>
+      <div class="footer-container">
+        <span class="footer-copy">© 2025 NicheFind AI. Профессиональная аналитика бизнес-ниш.</span>
+        <span class="footer-brand">NicheFind AI</span>
       </div>
     </footer>
   </div>
 </template>
 
 <style scoped>
-/* ═══ Layout ═══ */
 .landing {
   min-height: 100vh;
-  overflow-x: hidden;
+  background: #fff;
 }
 
-.container {
+/* Navbar */
+.navbar {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-container {
   max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
-  padding: 0 24px;
+  display: flex;
+  align-items: center;
 }
 
-.section {
-  padding: 80px 0;
+.nav-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: -0.5px;
+  margin-right: 32px;
 }
 
-.section-title {
-  text-align: center;
-  font-size: 32px;
-  margin: 0 0 48px;
-  color: var(--text-h);
+.nav-links {
+  display: flex;
+  gap: 24px;
+  flex: 1;
 }
 
-/* ═══ Hero ═══ */
-.hero {
-  padding: 100px 0 80px;
-  text-align: center;
-  background: linear-gradient(180deg, var(--accent-bg) 0%, transparent 100%);
+.nav-link {
+  font-size: 14px;
+  color: #666;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.hero-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 24px;
+.nav-link--active {
+  color: #00bfa5;
+  font-weight: 500;
 }
 
-.hero-badge {
-  display: inline-block;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  color: var(--accent);
+.nav-cta {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 24px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  padding: 80px 24px 60px;
+  background: linear-gradient(180deg, #f0fdf9 0%, #fff 100%);
 }
 
 .hero-title {
-  font-size: 48px;
-  line-height: 1.15;
+  font-size: 44px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
   margin: 0 0 20px;
-  font-weight: 600;
-  color: var(--text-h);
-}
-
-.hero-highlight {
-  background: linear-gradient(135deg, var(--accent), #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: -1px;
 }
 
 .hero-desc {
-  font-size: 18px;
+  font-size: 16px;
+  color: #666;
+  max-width: 560px;
+  margin: 0 auto 32px;
   line-height: 1.6;
-  color: var(--text);
-  margin: 0 0 32px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-.hero-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 48px;
-}
-
-.hero-hint {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.hero-stats {
-  display: flex;
-  justify-content: center;
-  gap: 48px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-h);
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text);
-}
-
-/* ═══ Buttons ═══ */
-.btn-primary {
+.hero-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   padding: 14px 32px;
   border: none;
   border-radius: 10px;
-  background: var(--accent);
+  background: #00bfa5;
   color: #fff;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
-  font-family: var(--sans);
   cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
+  font-family: inherit;
+  transition: opacity 0.15s;
 }
 
-.btn-primary:hover {
-  transform: translateY(-1px);
+.hero-btn:hover {
   opacity: 0.9;
 }
 
-.btn-primary--lg {
-  padding: 18px 40px;
-  font-size: 18px;
-}
-
-/* ═══ Problem ═══ */
-.problem {
-  background: var(--bg);
-}
-
-.problem-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-.problem-card {
+/* Visual mockup */
+.hero-visual {
+  margin-top: 48px;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 24px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  transition: border-color 0.2s;
-}
-
-.problem-card:hover {
-  border-color: var(--accent-border);
-}
-
-.problem-icon {
-  font-size: 28px;
-  flex-shrink: 0;
-}
-
-.problem-card p {
-  margin: 0;
-  font-size: 15px;
-  color: var(--text-h);
-  line-height: 1.5;
-}
-
-/* ═══ How it works ═══ */
-.how {
-  background: var(--accent-bg);
-}
-
-.steps {
-  display: flex;
-  align-items: flex-start;
   justify-content: center;
-  gap: 24px;
 }
 
-.step {
-  flex: 1;
-  max-width: 280px;
-  text-align: center;
-}
-
-.step-num {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 20px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-}
-
-.step h3 {
-  font-size: 18px;
-  margin: 0 0 8px;
-  color: var(--text-h);
-}
-
-.step p {
-  font-size: 14px;
-  color: var(--text);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.step-arrow {
-  font-size: 24px;
-  color: var(--accent);
-  margin-top: 12px;
-  flex-shrink: 0;
-}
-
-/* ═══ Value / Pricing ═══ */
-.value-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.value-col {
+.visual-card {
+  width: 480px;
+  max-width: 100%;
   padding: 32px;
+  background: #1a1a2e;
   border-radius: 16px;
-  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.value-col--paid {
-  border-color: var(--accent-border);
-  background: var(--accent-bg);
-  position: relative;
-}
-
-.value-badge {
-  display: inline-block;
-  padding: 4px 12px;
+.visual-bar {
+  height: 12px;
+  background: linear-gradient(90deg, #00bfa5, #00e5cc);
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  width: 100%;
 }
 
-.value-badge--free {
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
+.visual-bar--short {
+  width: 60%;
+  background: linear-gradient(90deg, #4fc3f7, #00bfa5);
 }
 
-.value-badge--paid {
-  background: var(--accent-bg);
-  color: var(--accent);
+.visual-bar--med {
+  width: 80%;
+  background: linear-gradient(90deg, #00bfa5, #69f0ae);
 }
 
-.value-col h3 {
-  font-size: 20px;
-  margin: 0 0 16px;
-  color: var(--text-h);
-}
-
-.value-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 20px;
-}
-
-.value-item {
-  padding: 8px 0;
-  font-size: 14px;
+.visual-dots {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.value-item::before {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.visual-dots span {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  font-size: 11px;
-}
-
-.value-item--included {
-  color: var(--text-h);
-}
-
-.value-item--included::before {
-  content: '✓';
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-}
-
-.value-item--locked {
-  color: var(--text);
+  background: #00bfa5;
   opacity: 0.6;
 }
 
-.value-item--locked::before {
-  content: '🔒';
-  background: transparent;
+.visual-dots span:nth-child(2) { opacity: 0.8; }
+.visual-dots span:nth-child(3) { opacity: 1; }
+.visual-dots span:nth-child(4) { opacity: 0.7; }
+.visual-dots span:nth-child(5) { opacity: 0.5; }
+
+/* Sections */
+.section {
+  padding: 80px 24px;
 }
 
-.value-price {
+.section--gray {
+  background: #f8f9fa;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.section-title {
   font-size: 28px;
-  font-weight: 600;
-  color: var(--accent);
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 40px;
   text-align: center;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
 }
 
-/* ═══ Proof ═══ */
-.proof-grid {
+/* Steps */
+.steps-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
 
-.proof-card {
+.step-card {
   text-align: center;
   padding: 32px 24px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: #f8f9fa;
+  border-radius: 16px;
 }
 
-.proof-icon {
+.step-icon {
   font-size: 32px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.proof-card h4 {
+.step-card h3 {
   font-size: 16px;
+  font-weight: 600;
+  color: #111;
   margin: 0 0 8px;
-  color: var(--text-h);
 }
 
-.proof-card p {
-  font-size: 14px;
-  color: var(--text);
+.step-card p {
+  font-size: 13px;
+  color: #666;
   margin: 0;
   line-height: 1.5;
 }
 
-/* ═══ CTA ═══ */
-.cta {
-  background: linear-gradient(180deg, transparent 0%, var(--accent-bg) 100%);
+/* Benefits */
+.benefits-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
-.cta-container {
+.benefit-card {
+  padding: 28px;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.benefit-card--large {
+  grid-column: span 1;
+}
+
+.benefit-icon {
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.benefit-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 8px;
+}
+
+.benefit-card p {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.benefit-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.btag {
+  padding: 4px 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #555;
+}
+
+/* CTA */
+.cta-section {
+  background: #fff;
+}
+
+.cta-block {
   text-align: center;
 }
 
-.cta-title {
-  font-size: 36px;
+.cta-block h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #111;
   margin: 0 0 12px;
-  color: var(--text-h);
 }
 
-.cta-desc {
-  font-size: 16px;
-  color: var(--text);
-  margin: 0 0 32px;
+.cta-block p {
+  font-size: 15px;
+  color: #666;
+  margin: 0 0 28px;
 }
 
-/* ═══ Footer ═══ */
+/* Footer */
 .footer {
-  padding: 24px 0;
-  border-top: 1px solid var(--border);
+  padding: 20px 24px;
+  border-top: 1px solid #eee;
 }
 
-.footer-inner {
+.footer-container {
+  max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.footer-brand {
-  font-weight: 600;
-  color: var(--text-h);
-}
-
 .footer-copy {
   font-size: 13px;
-  color: var(--text);
+  color: #999;
 }
 
-/* ═══ Responsive ═══ */
+.footer-brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .hero-title {
-    font-size: 32px;
+    font-size: 28px;
   }
 
-  .hero-stats {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .problem-grid {
+  .steps-grid {
     grid-template-columns: 1fr;
   }
 
-  .steps {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .step-arrow {
-    transform: rotate(90deg);
-  }
-
-  .value-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .proof-grid {
+  .benefits-grid {
     grid-template-columns: 1fr;
   }
 
   .section {
-    padding: 48px 0;
+    padding: 48px 24px;
+  }
+
+  .nav-links {
+    display: none;
   }
 }
 </style>
