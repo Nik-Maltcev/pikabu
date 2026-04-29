@@ -25,9 +25,24 @@ export async function getTopics(search?: string): Promise<TopicListResponse> {
 export async function startAnalysis(
   topicId: number,
   days: number = 30,
+  fingerprint?: string,
 ): Promise<AnalysisStartResponse> {
   const body: Record<string, unknown> = { topic_id: topicId, days }
+  if (fingerprint) body.fingerprint = fingerprint
   const { data } = await api.post<AnalysisStartResponse>('/analysis/start', body)
+  return data
+}
+
+export interface LimitCheckResponse {
+  used: number
+  remaining: number
+  limit: number
+}
+
+export async function checkLimit(fingerprint: string): Promise<LimitCheckResponse> {
+  const { data } = await api.get<LimitCheckResponse>('/limit/check', {
+    params: { fingerprint },
+  })
   return data
 }
 

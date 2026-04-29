@@ -204,3 +204,19 @@ class ParseMetadata(Base):
     topic = relationship("Topic", back_populates="parse_metadata")
 
     __table_args__ = (Index("idx_parse_metadata_topic_id", "topic_id"),)
+
+
+class DeviceLimit(Base):
+    """Track free analysis usage per browser fingerprint."""
+
+    __tablename__ = "device_limits"
+
+    id = Column(Integer, primary_key=True)
+    fingerprint = Column(String(64), unique=True, nullable=False, index=True)
+    analyses_count = Column(Integer, nullable=False, default=0)
+    first_seen_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_analysis_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("idx_device_limits_fingerprint", "fingerprint"),)

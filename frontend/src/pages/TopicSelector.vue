@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTopics, startAnalysis } from '../api/client'
+import { getTopics, startAnalysis, checkLimit } from '../api/client'
+import { generateFingerprint } from '../utils/fingerprint'
 import type { Topic } from '../types/api'
 
 const router = useRouter()
@@ -13,6 +14,11 @@ const selectedDays = ref(30)
 const loading = ref(false)
 const analyzing = ref(false)
 const error = ref('')
+
+// Rate limiting
+const fingerprint = ref('')
+const remainingAnalyses = ref(3)
+const limitReached = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -42,9 +48,9 @@ function selectTopic(topic: Topic) {
 
 const canStartAnalysis = ref(false)
 watch(
-  [selectedTopic],
+  [selectedTopic, limitReached],
   () => {
-    canStartAnalysis.value = selectedTopic.value !== null
+    canStartAnalysis.value = selectedTopic.value !== null && !limitReached.value
   },
   { immediate: true },
 )
@@ -55,14 +61,22 @@ async function onStartAnalysis() {
   error.value = ''
   try {
     const topicId = selectedTopic.value!.id
-    const res = await startAnalysis(topicId, selectedDays.value)
+    const res = await startAnalysis(topicId, selectedDays.value, fingerprint.value)
+    // Update remaining count
+    remainingAnalyses.value = Math.max(0, remainingAnalyses.value - 1)
+    if (remainingAnalyses.value <= 0) limitReached.value = true
     router.push({
       name: 'analysis',
       params: { taskId: res.task_id },
       query: { topicId: String(topicId) },
     })
   } catch (e: any) {
-    error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
+    const detail = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
+    if (e?.response?.status === 429) {
+      limitReached.value = true
+      remainingAnalyses.value = 0
+    }
+    error.value = detail
   } finally {
     analyzing.value = false
   }
@@ -93,7 +107,18 @@ function sourceLabel(source?: string): string {
   return 'Pikabu'
 }
 
-onMounted(() => loadTopics())
+onMounted(async () => {
+  // Generate fingerprint and check remaining limit
+  fingerprint.value = await generateFingerprint()
+  try {
+    const limit = await checkLimit(fingerprint.value)
+    remainingAnalyses.value = limit.remaining
+    limitReached.value = limit.remaining <= 0
+  } catch {
+    // If limit check fails, allow usage (graceful degradation)
+  }
+  loadTopics()
+})
 </script>
 
 <template>
@@ -191,6 +216,17 @@ onMounted(() => loadTopics())
               {{ d }} дней
             </button>
           </div>
+        </div>
+
+        <!-- Limit indicator -->
+        <div v-if="limitReached" class="ts-limit-reached">
+          <div class="ts-limit-icon">🔒</div>
+          <p>Лимит бесплатных анализов исчерпан</p>
+          <p class="ts-limit-hint">Оплатите для продолжения работы</p>
+        </div>
+
+        <div v-else class="ts-limit-info">
+          Осталось бесплатных анализов: <strong>{{ remainingAnalyses }}</strong>
         </div>
 
         <button
@@ -568,5 +604,44 @@ onMounted(() => loadTopics())
 
 .ts-period-btn--active:hover {
   opacity: 0.9;
+}
+
+/* Limit indicator */
+.ts-limit-info {
+  font-size: 13px;
+  color: var(--text);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.ts-limit-info strong {
+  color: var(--accent);
+}
+
+.ts-limit-reached {
+  text-align: center;
+  padding: 16px;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.2);
+  border-radius: 8px;
+}
+
+.ts-limit-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.ts-limit-reached p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.ts-limit-hint {
+  font-size: 13px !important;
+  color: var(--text) !important;
+  font-weight: 400 !important;
+  margin-top: 4px !important;
 }
 </style>

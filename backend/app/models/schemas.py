@@ -123,6 +123,7 @@ class AnalysisStartRequest(BaseModel):
     topic_id: int
     days: int = 30  # 7, 14, or 30
     analysis_mode: str = "niche_search"  # "niche_search" or "topic_analysis"
+    fingerprint: str = ""  # Browser fingerprint for rate limiting
 
 
 class AnalysisStartResponse(BaseModel):

@@ -10,6 +10,7 @@ Endpoints:
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.config import settings
-from app.models.database import AnalysisTask, Report as DBReport, Topic as DBTopic
+from app.models.database import AnalysisTask, DeviceLimit, Report as DBReport, Topic as DBTopic
 from app.models.schemas import (
     AnalysisStartRequest,
     AnalysisStartResponse,
@@ -84,6 +85,29 @@ async def get_topics(
     except Exception as exc:
         logger.exception("Error fetching topics: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/limit/check")
+async def check_limit(
+    fingerprint: str = Query(..., description="Browser fingerprint"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Check how many free analyses remain for this device."""
+    FREE_ANALYSIS_LIMIT = 3
+
+    result = await session.execute(
+        select(DeviceLimit).where(DeviceLimit.fingerprint == fingerprint)
+    )
+    device = result.scalar_one_or_none()
+
+    used = device.analyses_count if device else 0
+    remaining = max(0, FREE_ANALYSIS_LIMIT - used)
+
+    return {
+        "used": used,
+        "remaining": remaining,
+        "limit": FREE_ANALYSIS_LIMIT,
+    }
 
 
 @router.post("/parse/start")
@@ -201,9 +225,27 @@ async def start_analysis(
     Automatically finds duplicate category names across all platforms
     and parses them all together.
     """
+    FREE_ANALYSIS_LIMIT = 3
+
     # Validate analysis_mode
     if request.analysis_mode not in ("topic_analysis", "niche_search"):
         raise HTTPException(status_code=400, detail="analysis_mode must be 'topic_analysis' or 'niche_search'")
+
+    # Rate limiting by browser fingerprint
+    if request.fingerprint:
+        result_limit = await session.execute(
+            select(DeviceLimit).where(DeviceLimit.fingerprint == request.fingerprint)
+        )
+        device = result_limit.scalar_one_or_none()
+
+        if device and device.analyses_count >= FREE_ANALYSIS_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail="Лимит бесплатных анализов исчерпан. Оплатите для продолжения.",
+            )
+    else:
+        # No fingerprint provided — allow but log warning
+        logger.warning("Analysis request without fingerprint — rate limiting skipped")
 
     # Validate topic exists
     result = await session.execute(
@@ -252,6 +294,24 @@ async def start_analysis(
                 sources_label=sources_label,
             )
         )
+
+        # Increment fingerprint usage counter
+        if request.fingerprint:
+            result_limit = await session.execute(
+                select(DeviceLimit).where(DeviceLimit.fingerprint == request.fingerprint)
+            )
+            device = result_limit.scalar_one_or_none()
+            now = datetime.now(timezone.utc)
+            if device:
+                device.analyses_count += 1
+                device.last_analysis_at = now
+            else:
+                device = DeviceLimit(
+                    fingerprint=request.fingerprint,
+                    analyses_count=1,
+                    last_analysis_at=now,
+                )
+                session.add(device)
 
         await session.commit()
         return AnalysisStartResponse(task_id=task_id, status="pending")
