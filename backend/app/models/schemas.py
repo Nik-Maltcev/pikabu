@@ -114,14 +114,15 @@ class TopicListResponse(BaseModel):
 
 
 class AnalysisStartRequest(BaseModel):
-    """Request to start analysis for a topic."""
+    """Request to start analysis for a topic.
+
+    The backend automatically finds duplicate category names across all
+    platforms (Pikabu, Habr, VC.ru) and parses them all.
+    """
 
     topic_id: int
     days: int = 30  # 7, 14, or 30
-    source: str = "pikabu"
     analysis_mode: str = "niche_search"  # "niche_search" or "topic_analysis"
-    habr_topic_id: int | None = None
-    vcru_topic_id: int | None = None
 
 
 class AnalysisStartResponse(BaseModel):

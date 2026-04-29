@@ -76,10 +76,7 @@ export interface TopicListResponse {
 
 export interface AnalysisStartRequest {
   topic_id: number
-  source?: string
   analysis_mode?: string
-  habr_topic_id?: number
-  vcru_topic_id?: number
 }
 
 export interface AnalysisStartResponse {

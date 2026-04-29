@@ -158,6 +158,26 @@ class TopicManager:
         )
         return result.scalar_one_or_none()
 
+    async def find_duplicates_by_name(self, topic_id: int) -> list[Topic]:
+        """Find all topics with the same name across all platforms.
+
+        Returns a list of topics (including the original) that share the
+        same name (case-insensitive). This allows unified cross-platform
+        analysis when a user selects a single category.
+        """
+        from sqlalchemy import func
+
+        original = await self.get_topic_info(topic_id)
+        if original is None:
+            return []
+
+        result = await self._session.execute(
+            select(Topic).where(
+                func.lower(Topic.name) == original.name.lower()
+            )
+        )
+        return list(result.scalars().all())
+
     # ------------------------------------------------------------------
     # Cache helpers
     # ------------------------------------------------------------------

@@ -6,17 +6,9 @@ import type { Topic } from '../types/api'
 
 const router = useRouter()
 
-type SourceMode = 'pikabu' | 'habr' | 'vcru' | 'all'
-
-const sourceMode = ref<SourceMode>('pikabu')
 const topics = ref<Topic[]>([])
-const pikabuTopics = ref<Topic[]>([])
-const habrTopics = ref<Topic[]>([])
-const vcruTopics = ref<Topic[]>([])
 const searchQuery = ref('')
 const selectedTopic = ref<Topic | null>(null)
-const selectedHabrTopic = ref<Topic | null>(null)
-const selectedVcruTopic = ref<Topic | null>(null)
 const selectedDays = ref(30)
 const loading = ref(false)
 const analyzing = ref(false)
@@ -28,23 +20,8 @@ async function loadTopics(search?: string) {
   loading.value = true
   error.value = ''
   try {
-    if (sourceMode.value === 'all') {
-      const [pikabuRes, habrRes, vcruRes] = await Promise.all([
-        getTopics(search || undefined, 'pikabu'),
-        getTopics(search || undefined, 'habr'),
-        getTopics(search || undefined, 'vcru'),
-      ])
-      pikabuTopics.value = pikabuRes?.topics ?? []
-      habrTopics.value = habrRes?.topics ?? []
-      vcruTopics.value = vcruRes?.topics ?? []
-      topics.value = []
-    } else {
-      const res = await getTopics(search || undefined, sourceMode.value)
-      topics.value = res?.topics ?? []
-      pikabuTopics.value = []
-      habrTopics.value = []
-      vcruTopics.value = []
-    }
+    const res = await getTopics(search || undefined)
+    topics.value = res?.topics ?? []
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить список тем'
   } finally {
@@ -59,37 +36,15 @@ function onSearchInput() {
   }, 300)
 }
 
-function switchSource(mode: SourceMode) {
-  if (sourceMode.value === mode) return
-  sourceMode.value = mode
-  selectedTopic.value = null
-  selectedHabrTopic.value = null
-  selectedVcruTopic.value = null
-  searchQuery.value = ''
-  loadTopics()
-}
-
 function selectTopic(topic: Topic) {
   selectedTopic.value = topic
 }
 
-function selectHabrTopic(topic: Topic) {
-  selectedHabrTopic.value = topic
-}
-
-function selectVcruTopic(topic: Topic) {
-  selectedVcruTopic.value = topic
-}
-
 const canStartAnalysis = ref(false)
 watch(
-  [selectedTopic, selectedHabrTopic, selectedVcruTopic, sourceMode],
+  [selectedTopic],
   () => {
-    if (sourceMode.value === 'all') {
-      canStartAnalysis.value = selectedTopic.value !== null && selectedHabrTopic.value !== null && selectedVcruTopic.value !== null
-    } else {
-      canStartAnalysis.value = selectedTopic.value !== null
-    }
+    canStartAnalysis.value = selectedTopic.value !== null
   },
   { immediate: true },
 )
@@ -100,13 +55,7 @@ async function onStartAnalysis() {
   error.value = ''
   try {
     const topicId = selectedTopic.value!.id
-    const habrTopicId = sourceMode.value === 'all'
-      ? selectedHabrTopic.value!.id
-      : undefined
-    const vcruTopicId = sourceMode.value === 'all'
-      ? selectedVcruTopic.value!.id
-      : undefined
-    const res = await startAnalysis(topicId, selectedDays.value, sourceMode.value, habrTopicId, vcruTopicId)
+    const res = await startAnalysis(topicId, selectedDays.value)
     router.push({
       name: 'analysis',
       params: { taskId: res.task_id },
@@ -132,6 +81,18 @@ function platformLabel(url: string): string {
   return 'Открыть на Pikabu ↗'
 }
 
+function sourceBadgeClass(source?: string): string {
+  if (source === 'habr') return 'ts-source-badge--habr'
+  if (source === 'vcru') return 'ts-source-badge--vcru'
+  return 'ts-source-badge--pikabu'
+}
+
+function sourceLabel(source?: string): string {
+  if (source === 'habr') return 'Habr'
+  if (source === 'vcru') return 'VC.ru'
+  return 'Pikabu'
+}
+
 onMounted(() => loadTopics())
 </script>
 
@@ -139,230 +100,81 @@ onMounted(() => loadTopics())
   <div class="topic-selector">
     <header class="ts-header">
       <h1 class="ts-title">Поиск ниши</h1>
-      <p class="ts-subtitle">Выберите источник и тему для поиска бизнес-ниши</p>
+      <p class="ts-subtitle">Выберите категорию для поиска бизнес-ниши. Если категория есть на нескольких платформах — данные будут собраны со всех.</p>
     </header>
 
-    <!-- Source mode selector -->
-    <div class="ts-source-selector">
-      <button
-        class="ts-source-btn"
-        :class="{ 'ts-source-btn--active': sourceMode === 'pikabu' }"
-        @click="switchSource('pikabu')"
-      >Pikabu</button>
-      <button
-        class="ts-source-btn"
-        :class="{ 'ts-source-btn--active': sourceMode === 'habr' }"
-        @click="switchSource('habr')"
-      >Habr</button>
-      <button
-        class="ts-source-btn"
-        :class="{ 'ts-source-btn--active': sourceMode === 'vcru' }"
-        @click="switchSource('vcru')"
-      >VC.ru</button>
-      <button
-        class="ts-source-btn"
-        :class="{ 'ts-source-btn--active': sourceMode === 'all' }"
-        @click="switchSource('all')"
-      >Все</button>
-    </div>
-
-    <div class="ts-body" :class="{ 'ts-body--all': sourceMode === 'all' }">
-      <!-- Single source mode -->
-      <template v-if="sourceMode !== 'all'">
-        <div class="ts-search-panel">
-          <div class="ts-search-wrap">
-            <svg class="ts-search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-              <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.08 4.08a.75.75 0 11-1.06 1.06l-4.08-4.08A7 7 0 012 9z" clip-rule="evenodd"/>
-            </svg>
-            <input
-              v-model="searchQuery"
-              type="text"
-              class="ts-search-input"
-              placeholder="Поиск по названию темы…"
-              @input="onSearchInput"
-            />
-          </div>
-
-          <div v-if="error" class="ts-error" role="alert">{{ error }}</div>
-
-          <div v-if="loading && topics.length === 0" class="ts-loading">
-            <div class="ts-spinner"></div>
-            <span>Загрузка тем…</span>
-          </div>
-
-          <ul v-else class="ts-list" role="listbox" aria-label="Список тем">
-            <li
-              v-for="topic in topics"
-              :key="topic.id"
-              role="option"
-              :aria-selected="selectedTopic?.id === topic.id"
-              class="ts-item"
-              :class="{ 'ts-item--selected': selectedTopic?.id === topic.id }"
-              @click="selectTopic(topic)"
-            >
-              <div class="ts-item-left">
-                <span class="ts-item-name">{{ topic.name }}</span>
-                <span v-if="topic.source" class="ts-source-badge" :class="'ts-source-badge--' + topic.source">
-                  {{ topic.source === 'habr' ? 'Habr' : topic.source === 'vcru' ? 'VC.ru' : 'Pikabu' }}
-                </span>
-              </div>
-              <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
-            </li>
-            <li v-if="!loading && topics.length === 0" class="ts-empty">
-              Темы не найдены
-            </li>
-          </ul>
+    <div class="ts-body">
+      <!-- Topic list -->
+      <div class="ts-search-panel">
+        <div class="ts-search-wrap">
+          <svg class="ts-search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.08 4.08a.75.75 0 11-1.06 1.06l-4.08-4.08A7 7 0 012 9z" clip-rule="evenodd"/>
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="ts-search-input"
+            placeholder="Поиск по названию категории…"
+            @input="onSearchInput"
+          />
         </div>
-      </template>
 
-      <!-- All mode: three lists side by side -->
-      <template v-if="sourceMode === 'all'">
-        <div class="ts-search-panel">
-          <h3 class="ts-list-heading">
-            <span class="ts-source-badge ts-source-badge--pikabu">Pikabu</span>
-            Темы Pikabu
-          </h3>
-          <div class="ts-search-wrap">
-            <svg class="ts-search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-              <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.08 4.08a.75.75 0 11-1.06 1.06l-4.08-4.08A7 7 0 012 9z" clip-rule="evenodd"/>
-            </svg>
-            <input
-              v-model="searchQuery"
-              type="text"
-              class="ts-search-input"
-              placeholder="Поиск по названию темы…"
-              @input="onSearchInput"
-            />
-          </div>
+        <div v-if="error" class="ts-error" role="alert">{{ error }}</div>
 
-          <div v-if="error" class="ts-error" role="alert">{{ error }}</div>
+        <div v-if="loading && topics.length === 0" class="ts-loading">
+          <div class="ts-spinner"></div>
+          <span>Загрузка категорий…</span>
+        </div>
 
-          <div v-if="loading && pikabuTopics.length === 0" class="ts-loading">
-            <div class="ts-spinner"></div>
-            <span>Загрузка…</span>
-          </div>
-
-          <ul v-else class="ts-list" role="listbox" aria-label="Темы Pikabu">
-            <li
-              v-for="topic in pikabuTopics"
-              :key="topic.id"
-              role="option"
-              :aria-selected="selectedTopic?.id === topic.id"
-              class="ts-item"
-              :class="{ 'ts-item--selected': selectedTopic?.id === topic.id }"
-              @click="selectTopic(topic)"
-            >
+        <ul v-else class="ts-list" role="listbox" aria-label="Список категорий">
+          <li
+            v-for="topic in topics"
+            :key="topic.id"
+            role="option"
+            :aria-selected="selectedTopic?.id === topic.id"
+            class="ts-item"
+            :class="{ 'ts-item--selected': selectedTopic?.id === topic.id }"
+            @click="selectTopic(topic)"
+          >
+            <div class="ts-item-left">
               <span class="ts-item-name">{{ topic.name }}</span>
-              <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
-            </li>
-            <li v-if="!loading && pikabuTopics.length === 0" class="ts-empty">
-              Темы не найдены
-            </li>
-          </ul>
-        </div>
-
-        <div class="ts-search-panel">
-          <h3 class="ts-list-heading">
-            <span class="ts-source-badge ts-source-badge--habr">Habr</span>
-            Потоки Habr
-          </h3>
-
-          <div v-if="loading && habrTopics.length === 0" class="ts-loading">
-            <div class="ts-spinner"></div>
-            <span>Загрузка…</span>
-          </div>
-
-          <ul v-else class="ts-list" role="listbox" aria-label="Потоки Habr">
-            <li
-              v-for="topic in habrTopics"
-              :key="topic.id"
-              role="option"
-              :aria-selected="selectedHabrTopic?.id === topic.id"
-              class="ts-item"
-              :class="{ 'ts-item--selected': selectedHabrTopic?.id === topic.id }"
-              @click="selectHabrTopic(topic)"
-            >
-              <span class="ts-item-name">{{ topic.name }}</span>
-              <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
-            </li>
-            <li v-if="!loading && habrTopics.length === 0" class="ts-empty">
-              Потоки не найдены
-            </li>
-          </ul>
-        </div>
-
-        <div class="ts-search-panel">
-          <h3 class="ts-list-heading">
-            <span class="ts-source-badge ts-source-badge--vcru">VC.ru</span>
-            Категории VC.ru
-          </h3>
-
-          <div v-if="loading && vcruTopics.length === 0" class="ts-loading">
-            <div class="ts-spinner"></div>
-            <span>Загрузка…</span>
-          </div>
-
-          <ul v-else class="ts-list" role="listbox" aria-label="Категории VC.ru">
-            <li
-              v-for="topic in vcruTopics"
-              :key="topic.id"
-              role="option"
-              :aria-selected="selectedVcruTopic?.id === topic.id"
-              class="ts-item"
-              :class="{ 'ts-item--selected': selectedVcruTopic?.id === topic.id }"
-              @click="selectVcruTopic(topic)"
-            >
-              <span class="ts-item-name">{{ topic.name }}</span>
-              <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
-            </li>
-            <li v-if="!loading && vcruTopics.length === 0" class="ts-empty">
-              Категории не найдены
-            </li>
-          </ul>
-        </div>
-      </template>
+              <span v-if="topic.source" class="ts-source-badge" :class="sourceBadgeClass(topic.source)">
+                {{ sourceLabel(topic.source) }}
+              </span>
+            </div>
+            <span class="ts-item-subs">{{ formatSubscribers(topic.subscribers_count) }}</span>
+          </li>
+          <li v-if="!loading && topics.length === 0" class="ts-empty">
+            Категории не найдены
+          </li>
+        </ul>
+      </div>
 
       <!-- Details panel -->
       <aside class="ts-details-panel">
         <template v-if="selectedTopic">
           <h2 class="ts-detail-title">{{ selectedTopic.name }}</h2>
           <dl class="ts-detail-meta">
+            <dt>Платформа</dt>
+            <dd>
+              <span class="ts-source-badge" :class="sourceBadgeClass(selectedTopic.source)">
+                {{ sourceLabel(selectedTopic.source) }}
+              </span>
+            </dd>
             <dt>Подписчики</dt>
             <dd>{{ selectedTopic.subscribers_count ?? '—' }}</dd>
           </dl>
           <a :href="selectedTopic.url" target="_blank" rel="noopener" class="ts-detail-link">
             {{ platformLabel(selectedTopic.url) }}
           </a>
+          <p class="ts-detail-hint">
+            Если эта категория есть на других платформах, данные будут собраны автоматически.
+          </p>
         </template>
 
-        <template v-if="sourceMode === 'all' && selectedHabrTopic">
-          <hr class="ts-divider" />
-          <h2 class="ts-detail-title">{{ selectedHabrTopic.name }}</h2>
-          <dl class="ts-detail-meta">
-            <dt>Подписчики</dt>
-            <dd>{{ selectedHabrTopic.subscribers_count ?? '—' }}</dd>
-          </dl>
-          <a :href="selectedHabrTopic.url" target="_blank" rel="noopener" class="ts-detail-link">
-            Открыть на Habr ↗
-          </a>
-        </template>
-
-        <template v-if="sourceMode === 'all' && selectedVcruTopic">
-          <hr class="ts-divider" />
-          <h2 class="ts-detail-title">{{ selectedVcruTopic.name }}</h2>
-          <dl class="ts-detail-meta">
-            <dt>Подписчики</dt>
-            <dd>{{ selectedVcruTopic.subscribers_count ?? '—' }}</dd>
-          </dl>
-          <a :href="selectedVcruTopic.url" target="_blank" rel="noopener" class="ts-detail-link">
-            Открыть на VC.ru ↗
-          </a>
-        </template>
-
-        <template v-if="!selectedTopic && !(sourceMode === 'all' && (selectedHabrTopic || selectedVcruTopic))">
+        <template v-if="!selectedTopic">
           <div class="ts-detail-placeholder">
-            <p v-if="sourceMode === 'all'">Выберите по одной теме из каждого списка</p>
-            <p v-else>Выберите тему из списка слева, чтобы увидеть подробности</p>
+            <p>Выберите категорию из списка слева, чтобы увидеть подробности</p>
           </div>
         </template>
 
@@ -422,40 +234,8 @@ onMounted(() => loadTopics())
 .ts-subtitle {
   color: var(--text);
   font-size: 16px;
-}
-
-/* Source selector */
-.ts-source-selector {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 24px;
-}
-
-.ts-source-btn {
-  padding: 8px 20px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-h);
-  font-size: 14px;
-  font-family: var(--sans);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.ts-source-btn:hover {
-  background: var(--accent-bg);
-}
-
-.ts-source-btn--active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.ts-source-btn--active:hover {
-  opacity: 0.9;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 /* Source badges */
@@ -506,48 +286,10 @@ onMounted(() => loadTopics())
   flex: 1;
 }
 
-.ts-body--all {
-  grid-template-columns: 1fr 1fr 1fr 320px;
-}
-
-@media (max-width: 1200px) {
-  .ts-body--all {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-}
-
-@media (max-width: 960px) {
-  .ts-body--all {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 @media (max-width: 768px) {
   .ts-body {
     grid-template-columns: 1fr;
   }
-  .ts-body--all {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* List heading for all mode */
-.ts-list-heading {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0 0 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-h);
-}
-
-/* Divider */
-.ts-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 4px 0;
-  width: 100%;
 }
 
 /* Search panel */
@@ -691,6 +433,15 @@ onMounted(() => loadTopics())
 
 .ts-detail-link:hover {
   text-decoration: underline;
+}
+
+.ts-detail-hint {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--accent-bg);
+  border-radius: 6px;
 }
 
 .ts-detail-placeholder {
