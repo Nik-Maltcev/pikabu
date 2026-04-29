@@ -10,7 +10,7 @@ const router = useRouter()
 const topics = ref<Topic[]>([])
 const searchQuery = ref('')
 const selectedTopic = ref<Topic | null>(null)
-const selectedDays = ref(30)
+const selectedDays = ref(14)
 const loading = ref(false)
 const analyzing = ref(false)
 const error = ref('')
@@ -177,13 +177,18 @@ onMounted(async () => {
           <label class="ts-period-label">Период анализа:</label>
           <div class="ts-period-buttons">
             <button
-              v-for="d in [7, 14, 30]"
-              :key="d"
               class="ts-period-btn"
-              :class="{ 'ts-period-btn--active': selectedDays === d }"
-              @click="selectedDays = d"
+              :class="{ 'ts-period-btn--active': selectedDays === 14 }"
+              @click="selectedDays = 14"
             >
-              {{ d }} дней
+              14 дней
+            </button>
+            <button
+              class="ts-period-btn ts-period-btn--paid"
+              :class="{ 'ts-period-btn--active': selectedDays === 30 }"
+              @click="selectedDays = 30"
+            >
+              30 дней <span class="ts-paid-tag">₽</span>
             </button>
           </div>
         </div>
@@ -533,6 +538,25 @@ onMounted(async () => {
 
 .ts-period-btn--active:hover {
   opacity: 0.9;
+}
+
+.ts-period-btn--paid {
+  position: relative;
+}
+
+.ts-paid-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 /* Limit indicator */

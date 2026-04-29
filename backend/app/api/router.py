@@ -133,10 +133,8 @@ async def start_parse_only(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    if days not in (7, 14, 30):
-        raise HTTPException(status_code=400, detail="days must be 7, 14, or 30")
-
-    # Find all duplicate topics by name across platforms
+    if days not in (14, 30):
+        raise HTTPException(status_code=400, detail="days must be 14 or 30")    # Find all duplicate topics by name across platforms
     tm = TopicManager(session)
     all_topics = await tm.find_duplicates_by_name(topic_id)
     topic_ids_by_source: dict[str, int] = {}
@@ -256,8 +254,8 @@ async def start_analysis(
         raise HTTPException(status_code=404, detail="Topic not found")
 
     # Validate days
-    if request.days not in (7, 14, 30):
-        raise HTTPException(status_code=400, detail="days must be 7, 14, or 30")
+    if request.days not in (14, 30):
+        raise HTTPException(status_code=400, detail="days must be 14 or 30")
 
     # Find all duplicate topics by name across platforms
     tm = TopicManager(session)
