@@ -20,9 +20,6 @@ function goToApp() {
           <a class="text-slate-600 hover:text-slate-900 text-sm font-medium" href="#">Мои отчеты</a>
           <a class="text-slate-600 hover:text-slate-900 text-sm font-medium" href="#">Тарифы</a>
         </div>
-        <button class="bg-black text-white text-xs font-medium px-4 py-2 rounded hover:opacity-80 transition-opacity" @click="goToApp">
-          Войти
-        </button>
       </div>
     </nav>
 

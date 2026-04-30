@@ -109,7 +109,6 @@ onMounted(async () => {
             <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</a>
           </div>
         </div>
-        <button class="text-sm font-medium text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">Войти</button>
       </div>
     </nav>
 
