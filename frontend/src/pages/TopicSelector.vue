@@ -16,21 +16,24 @@ const analyzing = ref(false)
 const error = ref('')
 const showAllCategories = ref(false)
 
-// Rate limiting
 const fingerprint = ref('')
 const remainingAnalyses = ref(3)
 const limitReached = ref(false)
 
-const recommendedTags = ['FinTech', 'EdTech', 'Доставка еды', 'Pet-tech']
+const recommendedTags = ['Маркетинг', 'AI', 'Разработка', 'Еда']
 
-const mainCategories = [
-  { icon: 'storefront', name: 'Маркетплейсы', desc: 'Маркетплейсы, интернет-магазины' },
-  { icon: 'code', name: 'IT', desc: 'Разработка ПО, облачные сервисы' },
-  { icon: 'home_repair_service', name: 'Сервис', desc: 'Услуги для бизнеса и людей' },
-  { icon: 'factory', name: 'Бизнес', desc: 'Предпринимательство, стартапы' },
-  { icon: 'restaurant', name: 'Еда', desc: 'Доставка, рестораны, HoReCa' },
-  { icon: 'health_and_safety', name: 'Здоровье', desc: 'Медицина, wellness, фитнес' },
-  { icon: 'real_estate_agent', name: 'Инвестиции', desc: 'Финансы, недвижимость' },
+// Featured categories — must match real topic names from the database
+const mainCategoriesLarge = [
+  { icon: 'shopping_cart', name: 'Маркетплейсы', desc: 'Торговые площадки, интернет-магазины', bg: 'bg-[#dae2fd]', text: 'text-[#131b2e]' },
+  { icon: 'code', name: 'Разработка', desc: 'ПО, облачные сервисы, IT', bg: 'bg-[#57fae9]', text: 'text-[#007168]' },
+]
+
+const mainCategoriesSmall = [
+  { icon: 'campaign', name: 'Маркетинг' },
+  { icon: 'restaurant', name: 'Еда' },
+  { icon: 'health_and_safety', name: 'Здоровье' },
+  { icon: 'savings', name: 'Инвестиции' },
+  { icon: 'travel_explore', name: 'Путешествия' },
 ]
 
 const filteredTopics = computed(() => {
@@ -54,12 +57,8 @@ async function loadTopics() {
 
 function selectByName(name: string) {
   const topic = allTopics.value.find(t => t.name.toLowerCase() === name.toLowerCase())
-  if (topic) {
-    selectedTopic.value = topic
-  } else {
-    searchQuery.value = name
-    showAllCategories.value = true
-  }
+  if (topic) { selectedTopic.value = topic }
+  else { searchQuery.value = name; showAllCategories.value = true }
 }
 
 function selectTopic(topic: Topic) {
@@ -82,9 +81,7 @@ async function onStart() {
   } catch (e: any) {
     if (e?.response?.status === 429) { limitReached.value = true; remainingAnalyses.value = 0 }
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
-  } finally {
-    analyzing.value = false
-  }
+  } finally { analyzing.value = false }
 }
 
 onMounted(async () => {
@@ -101,179 +98,177 @@ onMounted(async () => {
 <template>
   <div class="bg-[#fcf8fa] text-[#1b1b1d] min-h-screen flex flex-col font-['Inter']">
     <!-- Navbar -->
-    <nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center px-6 h-16">
-      <div class="max-w-7xl w-full mx-auto flex justify-between items-center">
-        <div class="text-xl font-bold tracking-tight text-slate-900">BizNiche AI</div>
-        <div class="hidden md:flex gap-6">
-          <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Аналитика</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Мои отчеты</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</a>
+    <nav class="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+      <div class="flex justify-between items-center px-6 h-16 max-w-7xl mx-auto">
+        <div class="flex items-center gap-8">
+          <span class="text-xl font-bold tracking-tight text-slate-900">BizNiche AI</span>
+          <div class="hidden md:flex gap-6">
+            <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</a>
+            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Аналитика</a>
+            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Мои отчеты</a>
+            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</a>
+          </div>
         </div>
-        <button class="bg-black text-white text-xs font-medium px-4 py-2 rounded hover:opacity-80 transition-opacity">
-          Войти
-        </button>
+        <button class="text-sm font-medium text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">Войти</button>
       </div>
     </nav>
 
     <!-- Main -->
-    <main class="flex-grow pt-24 pb-16">
-      <div class="max-w-[900px] mx-auto px-6">
-        <div class="bg-white rounded-xl border border-[#c6c6cd] p-10">
-          <h1 class="text-3xl font-bold tracking-tight mb-2">Выберите категорию бизнеса</h1>
-          <p class="text-[#45464d] text-base mb-8">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
+    <main class="flex-grow pt-24 pb-12 px-6 max-w-[1024px] mx-auto w-full flex flex-col gap-8">
 
-          <!-- Search -->
-          <div class="relative mb-4">
-            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#76777d] text-xl">search</span>
-            <input
-              v-model="searchQuery"
-              type="text"
-              class="w-full pl-12 pr-4 py-3.5 border border-[#c6c6cd] rounded-xl text-base bg-[#f6f3f5] focus:bg-white focus:border-cyan-600 outline-none transition-colors"
-              placeholder="Поиск категорий (например, Кофейня, SaaS...)"
-              @focus="showAllCategories = true"
-            />
-          </div>
+      <!-- Search block -->
+      <div class="bg-[#f0edef] rounded-xl p-8 border border-[#c6c6cd]">
+        <h1 class="text-[30px] leading-[38px] font-semibold tracking-tight text-[#1b1b1d] mb-2">Выберите категорию бизнеса</h1>
+        <p class="text-base text-[#45464d] mb-6">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
 
-          <!-- Recommended tags -->
-          <div class="flex items-center gap-2 mb-8 flex-wrap">
-            <span class="text-xs text-[#76777d] uppercase tracking-wider font-medium whitespace-nowrap">✨ ИИ РЕКОМЕНДУЕТ:</span>
-            <button
-              v-for="tag in recommendedTags"
-              :key="tag"
-              class="px-3.5 py-1.5 border border-[#c6c6cd] rounded-full text-sm text-[#1b1b1d] bg-white hover:border-cyan-600 hover:text-cyan-700 transition-colors"
-              :class="{ '!bg-cyan-600 !text-white !border-cyan-600': selectedTopic?.name === tag }"
-              @click="selectByName(tag)"
-            >{{ tag }}</button>
-          </div>
-
-          <!-- Category cards -->
-          <div v-if="!showAllCategories" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <!-- First two large -->
-            <button
-              v-for="cat in mainCategories.slice(0, 2)"
-              :key="cat.name"
-              class="col-span-2 flex items-center gap-4 p-5 border border-[#e4e2e4] rounded-xl bg-white hover:border-cyan-600 hover:shadow-sm transition-all text-left"
-              :class="{ '!border-cyan-600 !bg-cyan-50': selectedTopic?.name === cat.name }"
-              @click="selectByName(cat.name)"
-            >
-              <div class="w-12 h-12 bg-[#dae2fd] rounded-xl flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-2xl text-[#3f465c]">{{ cat.icon }}</span>
-              </div>
-              <div>
-                <div class="font-semibold text-sm">{{ cat.name }}</div>
-                <div class="text-xs text-[#76777d]">{{ cat.desc }}</div>
-              </div>
-            </button>
-
-            <!-- Rest smaller -->
-            <button
-              v-for="cat in mainCategories.slice(2)"
-              :key="cat.name"
-              class="flex flex-col items-center justify-center gap-2 p-5 border border-[#e4e2e4] rounded-xl bg-white hover:border-cyan-600 hover:shadow-sm transition-all text-center"
-              :class="{ '!border-cyan-600 !bg-cyan-50': selectedTopic?.name === cat.name }"
-              @click="selectByName(cat.name)"
-            >
-              <span class="material-symbols-outlined text-2xl text-[#45464d]">{{ cat.icon }}</span>
-              <span class="text-sm font-medium">{{ cat.name }}</span>
-            </button>
-
-            <!-- All categories -->
-            <button
-              class="flex flex-col items-center justify-center gap-2 p-5 border border-dashed border-[#c6c6cd] rounded-xl bg-white hover:border-cyan-600 transition-all text-center"
-              @click="showAllCategories = true"
-            >
-              <span class="material-symbols-outlined text-2xl text-[#45464d]">apps</span>
-              <span class="text-sm font-medium">Все категории</span>
-            </button>
-          </div>
-
-          <!-- Full list -->
-          <div v-if="showAllCategories" class="mb-6">
-            <div v-if="loading" class="flex items-center justify-center gap-3 py-10 text-[#76777d]">
-              <div class="w-5 h-5 border-2 border-[#c6c6cd] border-t-cyan-600 rounded-full animate-spin"></div>
-              Загрузка…
-            </div>
-            <ul v-else class="max-h-72 overflow-y-auto border border-[#e4e2e4] rounded-xl divide-y divide-[#f6f3f5]">
-              <li
-                v-for="topic in filteredTopics"
-                :key="topic.id"
-                class="px-4 py-3 cursor-pointer text-sm hover:bg-cyan-50 transition-colors"
-                :class="{ 'bg-cyan-50 text-cyan-700 font-medium': selectedTopic?.id === topic.id }"
-                @click="selectTopic(topic)"
-              >{{ topic.name }}</li>
-              <li v-if="filteredTopics.length === 0" class="px-4 py-6 text-center text-sm text-[#76777d]">
-                Категории не найдены
-              </li>
-            </ul>
-            <button class="mt-3 text-sm text-[#76777d] hover:text-cyan-600 transition-colors" @click="showAllCategories = false">
-              ← Назад к основным
-            </button>
-          </div>
-
-          <!-- Selection + Period -->
-          <div v-if="selectedTopic" class="flex items-center justify-between p-4 bg-[#f0fdf9] border border-[#d1fae5] rounded-xl mb-4 flex-wrap gap-3">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-[#45464d]">Выбрано:</span>
-              <span class="text-sm font-semibold">{{ selectedTopic.name }}</span>
-            </div>
-            <div class="flex gap-2">
-              <button
-                class="px-4 py-2 border border-[#e4e2e4] rounded-lg text-sm transition-all"
-                :class="selectedDays === 14 ? 'bg-black text-white border-black' : 'bg-white text-[#1b1b1d] hover:border-cyan-600'"
-                @click="selectedDays = 14"
-              >14 дней</button>
-              <button
-                class="px-4 py-2 border border-[#e4e2e4] rounded-lg text-sm transition-all flex items-center gap-1"
-                :class="selectedDays === 30 ? 'bg-black text-white border-black' : 'bg-white text-[#1b1b1d] hover:border-cyan-600'"
-                @click="selectedDays = 30"
-              >30 дней <span class="w-4 h-4 bg-cyan-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">₽</span></button>
-            </div>
-          </div>
-
-          <!-- Error -->
-          <div v-if="error" class="bg-red-50 text-red-700 border border-red-200 rounded-xl px-4 py-3 text-sm mb-4">{{ error }}</div>
-
-          <!-- Limit -->
-          <div v-if="limitReached" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm mb-4">
-            🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
-          </div>
-
-          <!-- Action -->
-          <div class="flex items-center justify-between">
-            <span v-if="!limitReached" class="text-sm text-[#76777d]">
-              Бесплатных анализов: <strong class="text-cyan-600">{{ remainingAnalyses }}</strong>
-            </span>
-            <span v-else></span>
-            <button
-              class="bg-black text-white text-sm font-medium px-8 py-3.5 rounded-xl hover:opacity-85 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
-              :disabled="!canStart || analyzing"
-              @click="onStart"
-            >
-              <template v-if="analyzing">
-                <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Анализируем…
-              </template>
-              <template v-else>
-                Далее <span class="text-lg">→</span>
-              </template>
-            </button>
-          </div>
+        <div class="relative mb-6">
+          <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#45464d]">search</span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="w-full bg-[#fcf8fa] border border-[#c6c6cd] rounded-lg py-4 pl-12 pr-4 text-base text-[#1b1b1d] focus:outline-none focus:ring-2 focus:ring-[#006a62] focus:border-transparent transition-shadow"
+            placeholder="Поиск категорий (например, Кофейня, SaaS...)"
+            @focus="showAllCategories = true"
+          />
         </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-xs font-medium text-[#45464d] uppercase tracking-wider flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">psychology</span> ИИ рекомендует:
+          </span>
+          <button
+            v-for="tag in recommendedTags"
+            :key="tag"
+            class="bg-[#fcf8fa] rounded-full px-4 py-2 text-xs font-medium text-[#1b1b1d] border border-[#c6c6cd] hover:border-[#006a62] hover:text-[#006a62] transition-colors"
+            :class="{ '!bg-[#006a62] !text-white !border-[#006a62]': selectedTopic?.name === tag }"
+            @click="selectByName(tag)"
+          >{{ tag }}</button>
+        </div>
+      </div>
+
+      <!-- Category grid -->
+      <div v-if="!showAllCategories" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Large cards -->
+        <button
+          v-for="cat in mainCategoriesLarge"
+          :key="cat.name"
+          class="col-span-2 bg-[#fcf8fa] border border-[#c6c6cd] rounded-xl p-6 flex flex-col items-start justify-between h-40 hover:border-black hover:bg-[#f6f3f5] transition-colors group text-left"
+          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopic?.name === cat.name }"
+          @click="selectByName(cat.name)"
+        >
+          <div :class="[cat.bg, cat.text, 'p-3 rounded-lg w-fit']">
+            <span class="material-symbols-outlined text-[28px]">{{ cat.icon }}</span>
+          </div>
+          <div>
+            <h3 class="text-xl font-semibold text-[#1b1b1d] group-hover:text-black">{{ cat.name }}</h3>
+            <p class="text-sm text-[#45464d] mt-1">{{ cat.desc }}</p>
+          </div>
+        </button>
+
+        <!-- Small cards -->
+        <button
+          v-for="cat in mainCategoriesSmall"
+          :key="cat.name"
+          class="bg-[#fcf8fa] border border-[#c6c6cd] rounded-xl p-6 flex flex-col items-center justify-center gap-4 h-32 hover:border-black hover:bg-[#f6f3f5] transition-colors group"
+          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopic?.name === cat.name }"
+          @click="selectByName(cat.name)"
+        >
+          <span class="material-symbols-outlined text-[32px] text-[#45464d] group-hover:text-black transition-colors">{{ cat.icon }}</span>
+          <span class="text-xs font-medium text-[#1b1b1d] text-center">{{ cat.name }}</span>
+        </button>
+
+        <!-- All categories -->
+        <button
+          class="bg-[#f6f3f5] border border-[#c6c6cd] rounded-xl p-6 flex flex-col items-center justify-center gap-4 h-32 hover:border-black transition-colors group"
+          @click="showAllCategories = true"
+        >
+          <span class="material-symbols-outlined text-[32px] text-[#45464d] group-hover:text-black transition-colors">apps</span>
+          <span class="text-xs font-medium text-[#1b1b1d] text-center">Все категории</span>
+        </button>
+      </div>
+
+      <!-- Full list -->
+      <div v-if="showAllCategories">
+        <div v-if="loading" class="flex items-center justify-center gap-3 py-10 text-[#76777d]">
+          <div class="w-5 h-5 border-2 border-[#c6c6cd] border-t-[#006a62] rounded-full animate-spin"></div>
+          Загрузка…
+        </div>
+        <ul v-else class="max-h-80 overflow-y-auto bg-[#fcf8fa] border border-[#c6c6cd] rounded-xl divide-y divide-[#e4e2e4]">
+          <li
+            v-for="topic in filteredTopics"
+            :key="topic.id"
+            class="px-5 py-3.5 cursor-pointer text-sm hover:bg-[#f6f3f5] transition-colors"
+            :class="{ 'bg-[#f0fdf9] text-[#006a62] font-medium': selectedTopic?.id === topic.id }"
+            @click="selectTopic(topic)"
+          >{{ topic.name }}</li>
+          <li v-if="filteredTopics.length === 0" class="px-5 py-8 text-center text-sm text-[#76777d]">Категории не найдены</li>
+        </ul>
+        <button class="mt-3 text-sm text-[#76777d] hover:text-[#006a62] transition-colors" @click="showAllCategories = false">← Назад к основным</button>
+      </div>
+
+      <!-- Selection bar -->
+      <div v-if="selectedTopic" class="flex items-center justify-between p-4 bg-[#f0fdf9] border border-[#d1fae5] rounded-xl flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-[#45464d]">Выбрано:</span>
+          <span class="text-sm font-semibold">{{ selectedTopic.name }}</span>
+        </div>
+        <div class="flex gap-2">
+          <button
+            class="px-4 py-2 border rounded-lg text-sm transition-all"
+            :class="selectedDays === 14 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
+            @click="selectedDays = 14"
+          >14 дней</button>
+          <button
+            class="px-4 py-2 border rounded-lg text-sm transition-all flex items-center gap-1.5"
+            :class="selectedDays === 30 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
+            @click="selectedDays = 30"
+          >30 дней <span class="w-4 h-4 bg-[#006a62] text-white text-[9px] font-bold rounded-full inline-flex items-center justify-center">₽</span></button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div v-if="error" class="bg-red-50 text-red-700 border border-red-200 rounded-xl px-4 py-3 text-sm">{{ error }}</div>
+
+      <!-- Limit -->
+      <div v-if="limitReached" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
+        🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
+      </div>
+
+      <!-- Action -->
+      <div class="flex items-center justify-between">
+        <span v-if="!limitReached" class="text-sm text-[#76777d]">
+          Бесплатных анализов: <strong class="text-[#006a62]">{{ remainingAnalyses }}</strong>
+        </span>
+        <span v-else></span>
+        <button
+          class="bg-black text-white text-base px-8 py-4 rounded-xl flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+          :disabled="!canStart || analyzing"
+          @click="onStart"
+        >
+          <template v-if="analyzing">
+            <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Анализируем…
+          </template>
+          <template v-else>
+            Далее
+            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+          </template>
+        </button>
       </div>
     </main>
 
     <!-- Footer -->
-    <footer class="bg-slate-50 w-full mt-auto border-t border-slate-200 py-8 px-6">
-      <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="text-sm font-bold text-slate-900">© 2025 BizNiche AI. Профессиональная аналитика бизнес-ниш.</div>
-        <div class="flex flex-wrap gap-4 text-xs text-slate-500">
-          <a class="hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
-          <a class="hover:text-cyan-600 transition-colors" href="#">Методология</a>
-          <a class="hover:text-cyan-600 transition-colors" href="#">Поддержка</a>
-          <a class="hover:text-cyan-600 transition-colors" href="#">Конфиденциальность</a>
+    <footer class="w-full mt-auto border-t border-slate-200 bg-slate-50">
+      <div class="flex flex-col md:flex-row justify-between items-center py-12 px-6 max-w-7xl mx-auto gap-4">
+        <span class="text-xs text-slate-500">© 2025 BizNiche AI. Профессиональная аналитика бизнес-ниш.</span>
+        <div class="flex gap-4 flex-wrap justify-center">
+          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
+          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Методология</a>
+          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">API</a>
+          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Поддержка</a>
+          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Конфиденциальность</a>
         </div>
-        <div class="text-sm font-bold text-slate-900">BizNiche AI</div>
+        <span class="font-bold text-slate-900">BizNiche AI</span>
       </div>
     </footer>
   </div>
