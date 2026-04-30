@@ -21,18 +21,16 @@ const fingerprint = ref('')
 const remainingAnalyses = ref(3)
 const limitReached = ref(false)
 
-// Recommended tags
-const recommendedTags = ['Маркетинг', 'IT', 'Бизнес', 'AI']
+const recommendedTags = ['FinTech', 'EdTech', 'Доставка еды', 'Pet-tech']
 
-// Main categories with icons
 const mainCategories = [
-  { icon: '🛒', name: 'Маркетплейсы', desc: 'E-commerce, интернет-магазины' },
-  { icon: '💻', name: 'IT', desc: 'Разработка, SaaS, облачные сервисы' },
-  { icon: '🏠', name: 'Сервис', desc: 'Услуги для бизнеса и людей' },
-  { icon: '🏭', name: 'Бизнес', desc: 'Предпринимательство, стартапы' },
-  { icon: '🍽️', name: 'Еда', desc: 'Доставка, рестораны, HoReCa' },
-  { icon: '💊', name: 'Здоровье', desc: 'Медицина, wellness, фитнес' },
-  { icon: '🏘️', name: 'Инвестиции', desc: 'Финансы, недвижимость' },
+  { icon: 'storefront', name: 'Маркетплейсы', desc: 'Маркетплейсы, интернет-магазины' },
+  { icon: 'code', name: 'IT', desc: 'Разработка ПО, облачные сервисы' },
+  { icon: 'home_repair_service', name: 'Сервис', desc: 'Услуги для бизнеса и людей' },
+  { icon: 'factory', name: 'Бизнес', desc: 'Предпринимательство, стартапы' },
+  { icon: 'restaurant', name: 'Еда', desc: 'Доставка, рестораны, HoReCa' },
+  { icon: 'health_and_safety', name: 'Здоровье', desc: 'Медицина, wellness, фитнес' },
+  { icon: 'real_estate_agent', name: 'Инвестиции', desc: 'Финансы, недвижимость' },
 ]
 
 const filteredTopics = computed(() => {
@@ -41,11 +39,11 @@ const filteredTopics = computed(() => {
   return allTopics.value.filter(t => t.name.toLowerCase().includes(q))
 })
 
-async function loadTopics(search?: string) {
+async function loadTopics() {
   loading.value = true
   error.value = ''
   try {
-    const res = await getTopics(search || undefined)
+    const res = await getTopics()
     allTopics.value = res?.topics ?? []
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить категории'
@@ -69,12 +67,10 @@ function selectTopic(topic: Topic) {
   showAllCategories.value = false
 }
 
-const canStartAnalysis = computed(() => {
-  return selectedTopic.value !== null && !limitReached.value
-})
+const canStart = computed(() => selectedTopic.value !== null && !limitReached.value)
 
-async function onStartAnalysis() {
-  if (!canStartAnalysis.value) return
+async function onStart() {
+  if (!canStart.value) return
   analyzing.value = true
   error.value = ''
   try {
@@ -82,18 +78,10 @@ async function onStartAnalysis() {
     const res = await startAnalysis(topicId, selectedDays.value, fingerprint.value)
     remainingAnalyses.value = Math.max(0, remainingAnalyses.value - 1)
     if (remainingAnalyses.value <= 0) limitReached.value = true
-    router.push({
-      name: 'analysis',
-      params: { taskId: res.task_id },
-      query: { topicId: String(topicId) },
-    })
+    router.push({ name: 'analysis', params: { taskId: res.task_id }, query: { topicId: String(topicId) } })
   } catch (e: any) {
-    const detail = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
-    if (e?.response?.status === 429) {
-      limitReached.value = true
-      remainingAnalyses.value = 0
-    }
-    error.value = detail
+    if (e?.response?.status === 429) { limitReached.value = true; remainingAnalyses.value = 0 }
+    error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
   } finally {
     analyzing.value = false
   }
@@ -111,648 +99,182 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="bg-[#fcf8fa] text-[#1b1b1d] min-h-screen flex flex-col font-['Inter']">
     <!-- Navbar -->
-    <nav class="navbar">
-      <div class="nav-container">
-        <span class="nav-brand">NicheFind AI</span>
-        <div class="nav-links">
-          <a class="nav-link nav-link--active">Поиск ниш</a>
+    <nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center px-6 h-16">
+      <div class="max-w-7xl w-full mx-auto flex justify-between items-center">
+        <div class="text-xl font-bold tracking-tight text-slate-900">BizNiche AI</div>
+        <div class="hidden md:flex gap-6">
+          <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</a>
+          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Аналитика</a>
+          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Мои отчеты</a>
+          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</a>
         </div>
+        <button class="bg-black text-white text-xs font-medium px-4 py-2 rounded hover:opacity-80 transition-opacity">
+          Войти
+        </button>
       </div>
     </nav>
 
-    <!-- Main content -->
-    <main class="main">
-      <div class="card">
-        <h1 class="card-title">Выберите категорию бизнеса</h1>
-        <p class="card-desc">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
+    <!-- Main -->
+    <main class="flex-grow pt-24 pb-16">
+      <div class="max-w-[900px] mx-auto px-6">
+        <div class="bg-white rounded-xl border border-[#c6c6cd] p-10">
+          <h1 class="text-3xl font-bold tracking-tight mb-2">Выберите категорию бизнеса</h1>
+          <p class="text-[#45464d] text-base mb-8">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
 
-        <!-- Search -->
-        <div class="search-wrap">
-          <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.08 4.08a.75.75 0 11-1.06 1.06l-4.08-4.08A7 7 0 012 9z" clip-rule="evenodd"/>
-          </svg>
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="Поиск категорий (например, Кофейня, SaaS...)"
-            @focus="showAllCategories = true"
-          />
-        </div>
-
-        <!-- Recommended tags -->
-        <div class="tags-row">
-          <span class="tags-label">✨ ИИ РЕКОМЕНДУЕТ:</span>
-          <button
-            v-for="tag in recommendedTags"
-            :key="tag"
-            class="tag-chip"
-            :class="{ 'tag-chip--active': selectedTopic?.name === tag }"
-            @click="selectByName(tag)"
-          >{{ tag }}</button>
-        </div>
-
-        <!-- Category cards grid -->
-        <div v-if="!showAllCategories" class="categories-grid">
-          <button
-            v-for="cat in mainCategories"
-            :key="cat.name"
-            class="cat-card"
-            :class="{ 'cat-card--selected': selectedTopic?.name === cat.name }"
-            @click="selectByName(cat.name)"
-          >
-            <div class="cat-icon">{{ cat.icon }}</div>
-            <div class="cat-info">
-              <span class="cat-name">{{ cat.name }}</span>
-              <span class="cat-desc">{{ cat.desc }}</span>
-            </div>
-          </button>
-          <button class="cat-card cat-card--all" @click="showAllCategories = true">
-            <div class="cat-icon">📋</div>
-            <div class="cat-info">
-              <span class="cat-name">Все категории</span>
-              <span class="cat-desc">Показать полный список</span>
-            </div>
-          </button>
-        </div>
-
-        <!-- Full list (shown on search or "all") -->
-        <div v-if="showAllCategories" class="full-list">
-          <div v-if="loading" class="list-loading">
-            <div class="spinner"></div>
-            <span>Загрузка…</span>
+          <!-- Search -->
+          <div class="relative mb-4">
+            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#76777d] text-xl">search</span>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="w-full pl-12 pr-4 py-3.5 border border-[#c6c6cd] rounded-xl text-base bg-[#f6f3f5] focus:bg-white focus:border-cyan-600 outline-none transition-colors"
+              placeholder="Поиск категорий (например, Кофейня, SaaS...)"
+              @focus="showAllCategories = true"
+            />
           </div>
-          <ul v-else class="topic-list">
-            <li
-              v-for="topic in filteredTopics"
-              :key="topic.id"
-              class="topic-item"
-              :class="{ 'topic-item--selected': selectedTopic?.id === topic.id }"
-              @click="selectTopic(topic)"
+
+          <!-- Recommended tags -->
+          <div class="flex items-center gap-2 mb-8 flex-wrap">
+            <span class="text-xs text-[#76777d] uppercase tracking-wider font-medium whitespace-nowrap">✨ ИИ РЕКОМЕНДУЕТ:</span>
+            <button
+              v-for="tag in recommendedTags"
+              :key="tag"
+              class="px-3.5 py-1.5 border border-[#c6c6cd] rounded-full text-sm text-[#1b1b1d] bg-white hover:border-cyan-600 hover:text-cyan-700 transition-colors"
+              :class="{ '!bg-cyan-600 !text-white !border-cyan-600': selectedTopic?.name === tag }"
+              @click="selectByName(tag)"
+            >{{ tag }}</button>
+          </div>
+
+          <!-- Category cards -->
+          <div v-if="!showAllCategories" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <!-- First two large -->
+            <button
+              v-for="cat in mainCategories.slice(0, 2)"
+              :key="cat.name"
+              class="col-span-2 flex items-center gap-4 p-5 border border-[#e4e2e4] rounded-xl bg-white hover:border-cyan-600 hover:shadow-sm transition-all text-left"
+              :class="{ '!border-cyan-600 !bg-cyan-50': selectedTopic?.name === cat.name }"
+              @click="selectByName(cat.name)"
             >
-              <span class="topic-name">{{ topic.name }}</span>
-            </li>
-            <li v-if="filteredTopics.length === 0" class="topic-empty">
-              Категории не найдены
-            </li>
-          </ul>
-          <button class="back-btn" @click="showAllCategories = false">← Назад к основным</button>
-        </div>
+              <div class="w-12 h-12 bg-[#dae2fd] rounded-xl flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-2xl text-[#3f465c]">{{ cat.icon }}</span>
+              </div>
+              <div>
+                <div class="font-semibold text-sm">{{ cat.name }}</div>
+                <div class="text-xs text-[#76777d]">{{ cat.desc }}</div>
+              </div>
+            </button>
 
-        <!-- Selected + Period + Action -->
-        <div v-if="selectedTopic" class="selection-bar">
-          <div class="selection-info">
-            <span class="selection-label">Выбрано:</span>
-            <span class="selection-name">{{ selectedTopic.name }}</span>
-          </div>
-
-          <div class="period-toggle">
+            <!-- Rest smaller -->
             <button
-              class="period-btn"
-              :class="{ 'period-btn--active': selectedDays === 14 }"
-              @click="selectedDays = 14"
-            >14 дней</button>
+              v-for="cat in mainCategories.slice(2)"
+              :key="cat.name"
+              class="flex flex-col items-center justify-center gap-2 p-5 border border-[#e4e2e4] rounded-xl bg-white hover:border-cyan-600 hover:shadow-sm transition-all text-center"
+              :class="{ '!border-cyan-600 !bg-cyan-50': selectedTopic?.name === cat.name }"
+              @click="selectByName(cat.name)"
+            >
+              <span class="material-symbols-outlined text-2xl text-[#45464d]">{{ cat.icon }}</span>
+              <span class="text-sm font-medium">{{ cat.name }}</span>
+            </button>
+
+            <!-- All categories -->
             <button
-              class="period-btn period-btn--paid"
-              :class="{ 'period-btn--active': selectedDays === 30 }"
-              @click="selectedDays = 30"
-            >30 дней <span class="paid-badge">₽</span></button>
+              class="flex flex-col items-center justify-center gap-2 p-5 border border-dashed border-[#c6c6cd] rounded-xl bg-white hover:border-cyan-600 transition-all text-center"
+              @click="showAllCategories = true"
+            >
+              <span class="material-symbols-outlined text-2xl text-[#45464d]">apps</span>
+              <span class="text-sm font-medium">Все категории</span>
+            </button>
           </div>
-        </div>
 
-        <!-- Error -->
-        <div v-if="error" class="error-msg">{{ error }}</div>
-
-        <!-- Limit -->
-        <div v-if="limitReached" class="limit-block">
-          🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
-        </div>
-
-        <!-- Action button -->
-        <div class="action-row">
-          <div v-if="!limitReached" class="remaining">
-            Бесплатных анализов: <strong>{{ remainingAnalyses }}</strong>
+          <!-- Full list -->
+          <div v-if="showAllCategories" class="mb-6">
+            <div v-if="loading" class="flex items-center justify-center gap-3 py-10 text-[#76777d]">
+              <div class="w-5 h-5 border-2 border-[#c6c6cd] border-t-cyan-600 rounded-full animate-spin"></div>
+              Загрузка…
+            </div>
+            <ul v-else class="max-h-72 overflow-y-auto border border-[#e4e2e4] rounded-xl divide-y divide-[#f6f3f5]">
+              <li
+                v-for="topic in filteredTopics"
+                :key="topic.id"
+                class="px-4 py-3 cursor-pointer text-sm hover:bg-cyan-50 transition-colors"
+                :class="{ 'bg-cyan-50 text-cyan-700 font-medium': selectedTopic?.id === topic.id }"
+                @click="selectTopic(topic)"
+              >{{ topic.name }}</li>
+              <li v-if="filteredTopics.length === 0" class="px-4 py-6 text-center text-sm text-[#76777d]">
+                Категории не найдены
+              </li>
+            </ul>
+            <button class="mt-3 text-sm text-[#76777d] hover:text-cyan-600 transition-colors" @click="showAllCategories = false">
+              ← Назад к основным
+            </button>
           </div>
-          <button
-            class="start-btn"
-            :disabled="!canStartAnalysis || analyzing"
-            @click="onStartAnalysis"
-          >
-            <template v-if="analyzing">
-              <div class="spinner spinner--sm"></div>
-              Анализируем…
-            </template>
-            <template v-else>
-              Далее →
-            </template>
-          </button>
+
+          <!-- Selection + Period -->
+          <div v-if="selectedTopic" class="flex items-center justify-between p-4 bg-[#f0fdf9] border border-[#d1fae5] rounded-xl mb-4 flex-wrap gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-[#45464d]">Выбрано:</span>
+              <span class="text-sm font-semibold">{{ selectedTopic.name }}</span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                class="px-4 py-2 border border-[#e4e2e4] rounded-lg text-sm transition-all"
+                :class="selectedDays === 14 ? 'bg-black text-white border-black' : 'bg-white text-[#1b1b1d] hover:border-cyan-600'"
+                @click="selectedDays = 14"
+              >14 дней</button>
+              <button
+                class="px-4 py-2 border border-[#e4e2e4] rounded-lg text-sm transition-all flex items-center gap-1"
+                :class="selectedDays === 30 ? 'bg-black text-white border-black' : 'bg-white text-[#1b1b1d] hover:border-cyan-600'"
+                @click="selectedDays = 30"
+              >30 дней <span class="w-4 h-4 bg-cyan-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">₽</span></button>
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div v-if="error" class="bg-red-50 text-red-700 border border-red-200 rounded-xl px-4 py-3 text-sm mb-4">{{ error }}</div>
+
+          <!-- Limit -->
+          <div v-if="limitReached" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm mb-4">
+            🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
+          </div>
+
+          <!-- Action -->
+          <div class="flex items-center justify-between">
+            <span v-if="!limitReached" class="text-sm text-[#76777d]">
+              Бесплатных анализов: <strong class="text-cyan-600">{{ remainingAnalyses }}</strong>
+            </span>
+            <span v-else></span>
+            <button
+              class="bg-black text-white text-sm font-medium px-8 py-3.5 rounded-xl hover:opacity-85 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
+              :disabled="!canStart || analyzing"
+              @click="onStart"
+            >
+              <template v-if="analyzing">
+                <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Анализируем…
+              </template>
+              <template v-else>
+                Далее <span class="text-lg">→</span>
+              </template>
+            </button>
+          </div>
         </div>
       </div>
     </main>
 
     <!-- Footer -->
-    <footer class="footer">
-      <div class="footer-container">
-        <span class="footer-copy">© 2025 NicheFind AI. Профессиональная аналитика бизнес-ниш.</span>
+    <footer class="bg-slate-50 w-full mt-auto border-t border-slate-200 py-8 px-6">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-sm font-bold text-slate-900">© 2025 BizNiche AI. Профессиональная аналитика бизнес-ниш.</div>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-500">
+          <a class="hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
+          <a class="hover:text-cyan-600 transition-colors" href="#">Методология</a>
+          <a class="hover:text-cyan-600 transition-colors" href="#">Поддержка</a>
+          <a class="hover:text-cyan-600 transition-colors" href="#">Конфиденциальность</a>
+        </div>
+        <div class="text-sm font-bold text-slate-900">BizNiche AI</div>
       </div>
     </footer>
   </div>
 </template>
-
-<style scoped>
-.page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f8f9fa;
-}
-
-/* Navbar */
-.navbar {
-  background: #fff;
-  border-bottom: 1px solid #eee;
-  padding: 0 24px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-}
-
-.nav-container {
-  max-width: 1100px;
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 32px;
-}
-
-.nav-brand {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111;
-  letter-spacing: -0.5px;
-}
-
-.nav-links {
-  display: flex;
-  gap: 24px;
-}
-
-.nav-link {
-  font-size: 14px;
-  color: #666;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.nav-link--active {
-  color: #00bfa5;
-  font-weight: 500;
-}
-
-/* Main */
-.main {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 24px;
-}
-
-.card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 48px;
-  max-width: 900px;
-  width: 100%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-
-.card-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111;
-  margin: 0 0 8px;
-}
-
-.card-desc {
-  font-size: 15px;
-  color: #666;
-  margin: 0 0 28px;
-}
-
-/* Search */
-.search-wrap {
-  position: relative;
-  margin-bottom: 16px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999;
-}
-
-.search-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 16px 14px 44px;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  font-size: 15px;
-  font-family: inherit;
-  color: #111;
-  background: #fafafa;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.search-input:focus {
-  border-color: #00bfa5;
-  background: #fff;
-}
-
-.search-input::placeholder {
-  color: #aaa;
-}
-
-/* Tags */
-.tags-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 28px;
-  flex-wrap: wrap;
-}
-
-.tags-label {
-  font-size: 12px;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-.tag-chip {
-  padding: 6px 14px;
-  border: 1px solid #e5e5e5;
-  border-radius: 20px;
-  background: #fff;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-}
-
-.tag-chip:hover {
-  border-color: #00bfa5;
-  color: #00bfa5;
-}
-
-.tag-chip--active {
-  background: #00bfa5;
-  color: #fff;
-  border-color: #00bfa5;
-}
-
-/* Category cards */
-.categories-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.cat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  background: #fff;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: all 0.15s;
-}
-
-.cat-card:hover {
-  border-color: #00bfa5;
-  box-shadow: 0 2px 8px rgba(0, 191, 165, 0.08);
-}
-
-.cat-card--selected {
-  border-color: #00bfa5;
-  background: rgba(0, 191, 165, 0.04);
-}
-
-.cat-card--all {
-  border-style: dashed;
-}
-
-.cat-icon {
-  font-size: 28px;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.cat-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cat-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111;
-}
-
-.cat-desc {
-  font-size: 12px;
-  color: #888;
-}
-
-/* Full list */
-.full-list {
-  margin-bottom: 24px;
-}
-
-.topic-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #eee;
-  border-radius: 12px;
-}
-
-.topic-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  border-bottom: 1px solid #f5f5f5;
-  transition: background 0.1s;
-  font-size: 14px;
-  color: #333;
-}
-
-.topic-item:last-child {
-  border-bottom: none;
-}
-
-.topic-item:hover {
-  background: #f0fdf9;
-}
-
-.topic-item--selected {
-  background: #f0fdf9;
-  font-weight: 500;
-  color: #00bfa5;
-}
-
-.topic-empty {
-  padding: 24px;
-  text-align: center;
-  color: #999;
-  font-size: 14px;
-}
-
-.back-btn {
-  margin-top: 12px;
-  padding: 8px 16px;
-  border: none;
-  background: none;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.back-btn:hover {
-  color: #00bfa5;
-}
-
-/* Selection bar */
-.selection-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: #f0fdf9;
-  border: 1px solid #d1fae5;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.selection-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.selection-label {
-  font-size: 13px;
-  color: #666;
-}
-
-.selection-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #111;
-}
-
-.period-toggle {
-  display: flex;
-  gap: 6px;
-}
-
-.period-btn {
-  padding: 8px 16px;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-}
-
-.period-btn:hover {
-  border-color: #00bfa5;
-}
-
-.period-btn--active {
-  background: #111;
-  color: #fff;
-  border-color: #111;
-}
-
-.period-btn--paid .paid-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #00bfa5;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  margin-left: 4px;
-  vertical-align: middle;
-}
-
-/* Error */
-.error-msg {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  margin-bottom: 16px;
-}
-
-/* Limit */
-.limit-block {
-  background: #fef9e7;
-  border: 1px solid #fde68a;
-  border-radius: 10px;
-  padding: 14px 16px;
-  font-size: 14px;
-  color: #92400e;
-  margin-bottom: 16px;
-}
-
-/* Action row */
-.action-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.remaining {
-  font-size: 13px;
-  color: #888;
-}
-
-.remaining strong {
-  color: #00bfa5;
-}
-
-.start-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 32px;
-  border: none;
-  border-radius: 10px;
-  background: #111;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.start-btn:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
-.start-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* Loading */
-.list-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 40px;
-  color: #888;
-}
-
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e5e5e5;
-  border-top-color: #00bfa5;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-.spinner--sm {
-  width: 14px;
-  height: 14px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Footer */
-.footer {
-  padding: 20px 24px;
-  border-top: 1px solid #eee;
-  background: #fff;
-}
-
-.footer-container {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.footer-copy {
-  font-size: 13px;
-  color: #999;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .card {
-    padding: 24px;
-  }
-
-  .card-title {
-    font-size: 22px;
-  }
-
-  .categories-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .selection-bar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .action-row {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  .start-btn {
-    justify-content: center;
-  }
-}
-</style>
