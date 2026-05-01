@@ -264,8 +264,8 @@ onMounted(async () => {
           <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
           <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Методология</a>
           <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">API</a>
-          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Поддержка</a>
-          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Конфиденциальность</a>
+          <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/terms">Оферта</router-link>
+          <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/privacy">Конфиденциальность</router-link>
         </div>
         <span class="font-bold text-slate-900">BizNiche AI</span>
       </div>

@@ -4,6 +4,8 @@ import TopicSelector from '../pages/TopicSelector.vue'
 import AnalysisProgress from '../pages/AnalysisProgress.vue'
 import ReportHistory from '../pages/ReportHistory.vue'
 import ReportView from '../pages/ReportView.vue'
+import Privacy from '../pages/Privacy.vue'
+import Terms from '../pages/Terms.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -13,6 +15,8 @@ const router = createRouter({
     { path: '/analysis/:taskId', name: 'analysis', component: AnalysisProgress },
     { path: '/reports/:topicId', name: 'reports', component: ReportHistory },
     { path: '/reports/:topicId/:reportId', name: 'report', component: ReportView },
+    { path: '/privacy', name: 'privacy', component: Privacy },
+    { path: '/terms', name: 'terms', component: Terms },
   ],
 })
 

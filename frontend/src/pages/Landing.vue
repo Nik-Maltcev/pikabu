@@ -134,8 +134,8 @@ function goToApp() {
         <a class="hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
         <a class="hover:text-cyan-600 transition-colors" href="#">Методология</a>
         <a class="hover:text-cyan-600 transition-colors" href="#">API</a>
-        <a class="hover:text-cyan-600 transition-colors" href="#">Поддержка</a>
-        <a class="hover:text-cyan-600 transition-colors" href="#">Конфиденциальность</a>
+        <router-link class="hover:text-cyan-600 transition-colors" to="/terms">Оферта</router-link>
+        <router-link class="hover:text-cyan-600 transition-colors" to="/privacy">Конфиденциальность</router-link>
       </div>
     </footer>
   </div>
