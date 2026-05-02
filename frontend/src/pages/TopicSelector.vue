@@ -101,7 +101,7 @@ onMounted(async () => {
     <nav class="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div class="flex justify-between items-center px-6 h-16 max-w-7xl mx-auto">
         <div class="flex items-center gap-8">
-          <span class="text-xl font-bold tracking-tight text-slate-900">BizNiche AI</span>
+          <span class="text-xl font-bold tracking-tight text-slate-900">BizMap</span>
           <div class="hidden md:flex gap-6">
             <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</a>
             <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Аналитика</a>
@@ -257,17 +257,28 @@ onMounted(async () => {
     </main>
 
     <!-- Footer -->
-    <footer class="w-full mt-auto border-t border-slate-200 bg-slate-50">
-      <div class="flex flex-col md:flex-row justify-between items-center py-12 px-6 max-w-7xl mx-auto gap-4">
-        <span class="text-xs text-slate-500">© 2025 BizNiche AI. Профессиональная аналитика бизнес-ниш.</span>
-        <div class="flex gap-4 flex-wrap justify-center">
-          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">О сервисе</a>
-          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">Методология</a>
-          <a class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" href="#">API</a>
-          <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/terms">Оферта</router-link>
-          <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/privacy">Конфиденциальность</router-link>
+    <footer class="w-full mt-auto border-t border-slate-200 bg-slate-50 py-12 px-6">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+        <div>
+          <div class="font-bold text-slate-900 text-lg mb-2">BizMap</div>
+          <p class="text-xs text-slate-500">© 2025 BizMap. Аналитика бизнес-ниш.</p>
         </div>
-        <span class="font-bold text-slate-900">BizNiche AI</span>
+        <div class="flex flex-wrap gap-8">
+          <div>
+            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Документы</div>
+            <div class="flex flex-col gap-1">
+              <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/terms">Оферта</router-link>
+              <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/privacy">Конфиденциальность</router-link>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Контактная информация</div>
+            <div class="flex flex-col gap-1 text-xs text-slate-500">
+              <span>ИП Мальцев Н.Е., ИНН 165924805367</span>
+              <span>Email: support@bizmap.ru</span>
+            </div>
+          </div>
+        </div>
       </div>
     </footer>
   </div>
