@@ -53,7 +53,7 @@
             <div class="bg-white border-2 border-[#006a62] rounded-xl p-6 relative">
               <div class="text-xs font-semibold text-[#006a62] bg-[#57fae9]/20 px-3 py-1 rounded-full w-fit mb-4">ПОЛНЫЙ ДОСТУП</div>
               <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Полный отчёт</h3>
-              <p class="text-2xl font-bold text-[#1b1b1d] mb-4">299 ₽</p>
+              <p class="text-2xl font-bold text-[#1b1b1d] mb-4">490 ₽</p>
               <p class="text-sm text-[#44474d] mb-4">Детальный аналитический отчёт для принятия бизнес-решений.</p>
               <h4 class="text-sm font-semibold text-[#1b1b1d] mb-2">Характеристики:</h4>
               <ul class="text-sm text-[#44474d] space-y-1.5 list-disc pl-5">

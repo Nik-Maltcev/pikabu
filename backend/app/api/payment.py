@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payment")
 
-REPORT_PRICE = 299  # rubles
+REPORT_PRICE = 490  # rubles
 
 
 class PaymentCreateRequest(BaseModel):
