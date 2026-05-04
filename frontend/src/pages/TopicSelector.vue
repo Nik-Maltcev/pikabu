@@ -267,6 +267,7 @@ onMounted(async () => {
           <div>
             <div class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Документы</div>
             <div class="flex flex-col gap-1">
+              <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/pricing">Услуги и цены</router-link>
               <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/terms">Оферта</router-link>
               <router-link class="text-xs text-slate-500 hover:text-cyan-600 transition-colors" to="/privacy">Конфиденциальность</router-link>
             </div>
@@ -274,8 +275,9 @@ onMounted(async () => {
           <div>
             <div class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Контактная информация</div>
             <div class="flex flex-col gap-1 text-xs text-slate-500">
-              <span>ИП Мальцев Н.Е., ИНН 165924805367</span>
-              <span>Email: support@bizmap.ru</span>
+              <span>Самозанятый Мальцев Н.Е., ИНН 165924805367</span>
+              <span>Тел: +7 900 324-21-25</span>
+              <span>Email: nikmaltcev@vk.com</span>
             </div>
           </div>
         </div>

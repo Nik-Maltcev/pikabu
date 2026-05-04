@@ -17,6 +17,7 @@ const router = createRouter({
     { path: '/reports/:topicId/:reportId', name: 'report', component: ReportView },
     { path: '/privacy', name: 'privacy', component: Privacy },
     { path: '/terms', name: 'terms', component: Terms },
+    { path: '/pricing', name: 'pricing', component: () => import('../pages/Pricing.vue') },
   ],
 })
 
