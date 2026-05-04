@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # MiroFish integration
     mirofish_url: str = "http://localhost:5001"  # URL MiroFish backend
 
+    # Robokassa payment
+    robokassa_login: str = ""
+    robokassa_password1: str = ""
+    robokassa_password2: str = ""
+    robokassa_test_mode: bool = False
+    site_url: str = "http://localhost:5173"  # Frontend URL for redirects
+
     # Gemini API
     gemini_max_retries: int = 3
 

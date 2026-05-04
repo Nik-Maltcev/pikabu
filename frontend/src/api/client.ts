@@ -60,3 +60,27 @@ export async function getReport(topicId: number, reportId: number): Promise<Repo
   const { data } = await api.get<Report>(`/reports/${topicId}/${reportId}`)
   return data
 }
+
+// --- Payment API ---
+
+export interface PaymentCreateResponse {
+  payment_url: string
+  access_token: string
+}
+
+export interface PaymentCheckResponse {
+  paid: boolean
+  access_token?: string
+}
+
+export async function createPayment(reportId: number): Promise<PaymentCreateResponse> {
+  const { data } = await api.post<PaymentCreateResponse>('/payment/create', { report_id: reportId })
+  return data
+}
+
+export async function checkPayment(reportId: number, token?: string): Promise<PaymentCheckResponse> {
+  const params: Record<string, string | number> = { report_id: reportId }
+  if (token) params.token = token
+  const { data } = await api.get<PaymentCheckResponse>('/payment/check', { params })
+  return data
+}

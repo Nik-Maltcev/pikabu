@@ -220,3 +220,29 @@ class DeviceLimit(Base):
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index("idx_device_limits_fingerprint", "fingerprint"),)
+
+
+class Payment(Base):
+    """Track payments for report access via Robokassa."""
+
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    report_id = Column(
+        Integer, ForeignKey("reports.id", ondelete="CASCADE"), nullable=False
+    )
+    amount = Column(Integer, nullable=False)  # in rubles
+    status = Column(String(20), nullable=False, default="pending")  # pending, paid, failed
+    access_token = Column(String(64), unique=True, nullable=False, index=True)
+    robokassa_inv_id = Column(Integer, unique=True, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    report = relationship("Report")
+
+    __table_args__ = (
+        Index("idx_payments_report_id", "report_id"),
+        Index("idx_payments_access_token", "access_token"),
+    )
