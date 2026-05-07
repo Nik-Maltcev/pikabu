@@ -230,22 +230,52 @@ async def check_payment(
     return {"paid": False}
 
 
-@router.get("/test")
-async def test_payment():
-    """Generate a test Robokassa payment URL (5 RUB) to verify integration works.
-    No database record — just returns a URL to test the flow.
-    """
-    description = "BizMap: тест оплаты"
-    inv_id = 99999  # fixed test invoice
-    amount = 5
+class PaidAnalysisRequest(BaseModel):
+    """Request to create a paid analysis (when free limit is exhausted)."""
+    topic_id: int
+    days: int = 14
+    fingerprint: str = ""
 
+
+@router.post("/create-for-analysis")
+async def create_payment_for_analysis(
+    request: PaidAnalysisRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a payment that will trigger analysis after successful payment.
+    Used when free analyses are exhausted.
+    Stores topic_id and days in Shp_ params so we can start analysis after payment.
+    """
+    access_token = secrets.token_hex(32)
+    payment = Payment(
+        report_id=0,  # no report yet — will be created after payment
+        amount=REPORT_PRICE,
+        status="pending",
+        access_token=access_token,
+    )
+    session.add(payment)
+    await session.flush()
+    payment.robokassa_inv_id = payment.id
+    await session.commit()
+
+    # Build Robokassa URL with Shp_ params to pass topic_id and days
     login = settings.robokassa_login
     password1 = settings.robokassa_password1
-    out_sum = f"{amount:.2f}"
-    signature_str = f"{login}:{out_sum}:{inv_id}:{password1}"
+    out_sum = f"{REPORT_PRICE:.2f}"
+    inv_id = payment.id
+
+    # Shp_ params are included in signature in alphabetical order
+    shp_days = request.days
+    shp_fingerprint = request.fingerprint[:32] if request.fingerprint else ""
+    shp_topic_id = request.topic_id
+
+    # Signature with Shp_ params: MerchantLogin:OutSum:InvId:Password#1:Shp_days=X:Shp_fingerprint=X:Shp_topic_id=X
+    signature_str = f"{login}:{out_sum}:{inv_id}:{password1}:Shp_days={shp_days}:Shp_fingerprint={shp_fingerprint}:Shp_topic_id={shp_topic_id}"
     signature = hashlib.md5(signature_str.encode()).hexdigest()
 
+    description = "BizMap: полный анализ ниши"
     base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
+
     payment_url = (
         f"{base_url}"
         f"?MerchantLogin={login}"
@@ -253,8 +283,13 @@ async def test_payment():
         f"&InvId={inv_id}"
         f"&Description={quote(description)}"
         f"&SignatureValue={signature}"
+        f"&Shp_days={shp_days}"
+        f"&Shp_fingerprint={shp_fingerprint}"
+        f"&Shp_topic_id={shp_topic_id}"
     )
     if settings.robokassa_test_mode:
         payment_url += "&IsTest=1"
 
-    return {"payment_url": payment_url, "amount": amount, "inv_id": inv_id}
+    logger.info(f"Paid analysis payment created: id={payment.id}, topic={request.topic_id}")
+
+    return {"payment_url": payment_url, "access_token": access_token}

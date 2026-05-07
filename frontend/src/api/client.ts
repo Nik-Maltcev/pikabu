@@ -84,3 +84,12 @@ export async function checkPayment(reportId: number, token?: string): Promise<Pa
   const { data } = await api.get<PaymentCheckResponse>('/payment/check', { params })
   return data
 }
+
+export async function createPaidAnalysis(topicId: number, days: number, fingerprint: string): Promise<PaymentCreateResponse> {
+  const { data } = await api.post<PaymentCreateResponse>('/payment/create-for-analysis', {
+    topic_id: topicId,
+    days,
+    fingerprint,
+  })
+  return data
+}

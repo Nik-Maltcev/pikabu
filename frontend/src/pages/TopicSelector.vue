@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTopics, startAnalysis, checkLimit } from '../api/client'
+import { getTopics, startAnalysis, checkLimit, createPaidAnalysis } from '../api/client'
 import { generateFingerprint } from '../utils/fingerprint'
 import type { Topic } from '../types/api'
 
@@ -82,6 +82,21 @@ async function onStart() {
     if (e?.response?.status === 429) { limitReached.value = true; remainingAnalyses.value = 0 }
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
   } finally { analyzing.value = false }
+}
+
+const paymentLoading = ref(false)
+async function onPaidStart() {
+  if (!selectedTopic.value) return
+  paymentLoading.value = true
+  error.value = ''
+  try {
+    const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value)
+    window.location.href = result.payment_url
+  } catch (e: any) {
+    error.value = e?.response?.data?.detail || e?.message || 'Ошибка создания платежа'
+  } finally {
+    paymentLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -229,8 +244,19 @@ onMounted(async () => {
       <div v-if="error" class="bg-red-50 text-red-700 border border-red-200 rounded-xl px-4 py-3 text-sm">{{ error }}</div>
 
       <!-- Limit -->
-      <div v-if="limitReached" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
-        🔒 Лимит бесплатных анализов исчерпан. Оплатите для продолжения.
+      <div v-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
+        <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
+        <p class="mb-3">Оплатите 5 ₽ — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
+        <button
+          class="bg-[#006a62] text-white text-sm font-medium px-6 py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
+          :disabled="paymentLoading"
+          @click="onPaidStart"
+        >
+          {{ paymentLoading ? 'Переход к оплате...' : 'Оплатить и запустить анализ — 5 ₽' }}
+        </button>
+      </div>
+      <div v-else-if="limitReached && !selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
+        🔒 Бесплатные анализы исчерпаны. Выберите категорию и оплатите для продолжения.
       </div>
 
       <!-- Action -->
@@ -240,6 +266,7 @@ onMounted(async () => {
         </span>
         <span v-else></span>
         <button
+          v-if="!limitReached"
           class="bg-black text-white text-base px-8 py-4 rounded-xl flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
           :disabled="!canStart || analyzing"
           @click="onStart"
