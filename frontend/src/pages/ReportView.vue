@@ -40,7 +40,7 @@ async function loadReport() {
     report.value = await getReport(topicId, reportId)
     // Check payment status
     const token = (route.query.token as string) || ''
-    const payStatus = await checkPayment(reportId, token)
+    const payStatus = await checkPayment(reportId, token, topicId)
     isPaid.value = payStatus.paid
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить отчёт'

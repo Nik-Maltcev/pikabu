@@ -78,9 +78,10 @@ export async function createPayment(reportId: number): Promise<PaymentCreateResp
   return data
 }
 
-export async function checkPayment(reportId: number, token?: string): Promise<PaymentCheckResponse> {
+export async function checkPayment(reportId: number, token?: string, topicId?: number): Promise<PaymentCheckResponse> {
   const params: Record<string, string | number> = { report_id: reportId }
   if (token) params.token = token
+  if (topicId) params.topic_id = topicId
   const { data } = await api.get<PaymentCheckResponse>('/payment/check', { params })
   return data
 }
