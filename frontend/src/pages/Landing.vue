@@ -12,10 +12,13 @@ const testLoading = ref(false)
 async function testPayment() {
   testLoading.value = true
   try {
-    const res = await fetch('/api/payment/test')
+    const apiBase = import.meta.env.VITE_API_URL || '/api'
+    const res = await fetch(`${apiBase}/payment/test`)
     const data = await res.json()
     if (data.payment_url) {
       window.location.href = data.payment_url
+    } else {
+      alert('Нет payment_url в ответе: ' + JSON.stringify(data))
     }
   } catch (e) {
     alert('Ошибка: ' + e)
