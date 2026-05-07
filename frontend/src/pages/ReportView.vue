@@ -209,7 +209,7 @@ onMounted(loadReport)
             <p class="rv-paywall-desc">Получите доступ ко всем нишам, JTBD-анализу, рекомендациям по запуску, рискам, позиционированию и поисковым запросам.</p>
             <button class="rv-btn rv-btn--pay" :disabled="paymentLoading" @click="onBuyReport">
               <template v-if="paymentLoading">Переход к оплате…</template>
-              <template v-else>Открыть полный отчёт — 490 ₽</template>
+              <template v-else>Открыть полный отчёт — 5 ₽</template>
             </button>
             <p class="rv-paywall-hint">Оплата через Робокассу · Карта, СБП, кошельки</p>
           </div>
@@ -247,7 +247,14 @@ onMounted(loadReport)
 </template>
 
 <style scoped>
-.rv-page { max-width: 800px; margin: 0 auto; padding: 40px 24px; min-height: 100vh; }
+.rv-page {
+  --text: #6b7280;
+  --text-h: #1b1b1d;
+  --border: #e5e5e5;
+  --accent: #7c3aed;
+  --accent-bg: #f5f3ff;
+  max-width: 800px; margin: 0 auto; padding: 40px 24px; min-height: 100vh;
+}
 .rv-header { text-align: center; margin-bottom: 24px; }
 .rv-title { font-size: 28px; margin: 0 0 12px; color: var(--text-h); }
 .rv-back { background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; padding: 0; }
@@ -303,13 +310,13 @@ onMounted(loadReport)
 
 /* Paywall CTA */
 .rv-paywall { margin-top: 16px; }
-.rv-paywall-inner { text-align: center; padding: 32px 24px; border: 2px solid var(--accent); border-radius: 12px; background: var(--accent-bg); }
-.rv-paywall-title { font-size: 24px; margin: 0 0 8px; color: var(--text-h); }
-.rv-paywall-desc { font-size: 15px; color: var(--text); margin: 0 0 20px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.5; }
-.rv-btn--pay { display: inline-flex; align-items: center; justify-content: center; padding: 14px 32px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.rv-paywall-inner { text-align: center; padding: 32px 24px; border: 2px solid #7c3aed; border-radius: 12px; background: #f5f3ff; }
+.rv-paywall-title { font-size: 24px; margin: 0 0 8px; color: #1b1b1d; }
+.rv-paywall-desc { font-size: 15px; color: #6b7280; margin: 0 0 20px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+.rv-btn--pay { display: inline-flex; align-items: center; justify-content: center; padding: 14px 32px; border: none; border-radius: 10px; background: #7c3aed; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
 .rv-btn--pay:hover:not(:disabled) { opacity: 0.9; }
 .rv-btn--pay:disabled { opacity: 0.5; cursor: not-allowed; }
-.rv-paywall-hint { font-size: 12px; color: var(--text); margin: 12px 0 0; }
+.rv-paywall-hint { font-size: 12px; color: #6b7280; margin: 12px 0 0; }
 
 .rv-btn { display: inline-flex; align-items: center; padding: 10px 20px; border: none; border-radius: 8px; background: var(--accent); color: #fff; font-size: 14px; cursor: pointer; }
 .rv-btn--secondary { background: transparent; color: var(--text-h); border: 1px solid var(--border); }
