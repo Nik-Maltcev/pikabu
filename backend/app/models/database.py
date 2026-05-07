@@ -236,6 +236,7 @@ class Payment(Base):
     status = Column(String(20), nullable=False, default="pending")  # pending, paid, failed
     access_token = Column(String(64), unique=True, nullable=False, index=True)
     robokassa_inv_id = Column(Integer, unique=True, nullable=True)
+    task_id = Column(String(64), nullable=True)  # analysis task UUID after paid launch
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

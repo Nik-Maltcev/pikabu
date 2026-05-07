@@ -205,7 +205,7 @@ async def payment_result(
         task_id = task.id
 
         # Store task_id in payment for SuccessURL redirect
-        # We'll use access_token to find the task later
+        payment.task_id = str(task_id)
         payment.report_id = None  # will be set when report is generated
         await session.commit()
 
@@ -240,9 +240,12 @@ async def payment_success(
     if payment is None:
         return RedirectResponse(url=settings.site_url)
 
-    # If pre-analysis payment — redirect to topics page (analysis is running in background)
-    if payment.report_id is None and Shp_topic_id:
-        # Find the latest task for this topic
+    # If pre-analysis payment — redirect to progress page
+    if payment.report_id is None and (payment.task_id or Shp_topic_id):
+        if payment.task_id:
+            redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id or ''}"
+            return RedirectResponse(url=redirect_url)
+        # Fallback: find the latest task for this topic
         from app.models.database import AnalysisTask
         task_result = await session.execute(
             select(AnalysisTask)
