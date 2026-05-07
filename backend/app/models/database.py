@@ -231,6 +231,7 @@ class Payment(Base):
     report_id = Column(
         Integer, ForeignKey("reports.id", ondelete="CASCADE"), nullable=True
     )
+    topic_id = Column(Integer, nullable=True)  # which topic was paid for
     amount = Column(Integer, nullable=False)  # in rubles
     status = Column(String(20), nullable=False, default="pending")  # pending, paid, failed
     access_token = Column(String(64), unique=True, nullable=False, index=True)

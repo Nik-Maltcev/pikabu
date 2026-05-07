@@ -292,7 +292,7 @@ async def check_payment(
         if payment:
             return {"paid": True, "access_token": token}
 
-    # Check by report_id (any paid payment)
+    # Check by report_id (any paid payment linked to this report)
     result = await session.execute(
         select(Payment).where(
             Payment.report_id == report_id,
@@ -303,31 +303,24 @@ async def check_payment(
     if payment:
         return {"paid": True, "access_token": payment.access_token}
 
-    # Check by topic_id — if there's a paid pre-analysis payment for this topic
-    # (report_id is None but Shp_topic_id matches)
+    # Check by topic_id — find paid pre-analysis payment for this specific topic
     if topic_id:
-        # Find the report's topic_id and check if any paid payment exists for that topic
-        report_result = await session.execute(
-            select(DBReport).where(DBReport.id == report_id)
+        from sqlalchemy import and_
+        paid_result = await session.execute(
+            select(Payment).where(
+                and_(
+                    Payment.status == "paid",
+                    Payment.topic_id == topic_id,
+                    Payment.report_id.is_(None),
+                )
+            ).order_by(Payment.paid_at.desc()).limit(1)
         )
-        report = report_result.scalar_one_or_none()
-        if report:
-            # Find any recent paid payment without report_id (pre-analysis payments)
-            from sqlalchemy import and_
-            paid_result = await session.execute(
-                select(Payment).where(
-                    and_(
-                        Payment.status == "paid",
-                        Payment.report_id.is_(None),
-                        Payment.paid_at.isnot(None),
-                    )
-                ).order_by(Payment.paid_at.desc()).limit(5)
-            )
-            for p in paid_result.scalars().all():
-                # Link this payment to the report
-                p.report_id = report_id
-                await session.commit()
-                return {"paid": True, "access_token": p.access_token}
+        paid_payment = paid_result.scalar_one_or_none()
+        if paid_payment:
+            # Link this payment to the report
+            paid_payment.report_id = report_id
+            await session.commit()
+            return {"paid": True, "access_token": paid_payment.access_token}
 
     return {"paid": False}
     if payment:
@@ -355,6 +348,7 @@ async def create_payment_for_analysis(
     access_token = secrets.token_hex(32)
     payment = Payment(
         report_id=None,  # no report yet — will be created after payment
+        topic_id=request.topic_id,
         amount=REPORT_PRICE,
         status="pending",
         access_token=access_token,
