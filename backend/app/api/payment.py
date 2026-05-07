@@ -12,6 +12,7 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -49,16 +50,17 @@ def _generate_robokassa_url(inv_id: int, amount: int, description: str) -> str:
     signature_str = f"{login}:{out_sum}:{inv_id}:{password1}"
     signature = hashlib.md5(signature_str.encode()).hexdigest()
 
-    base_url = "https://auth.robokassa.ru/Merchant/Index"
+    base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
 
     params = (
         f"MerchantLogin={login}"
         f"&OutSum={out_sum}"
         f"&InvId={inv_id}"
-        f"&Description={description}"
+        f"&Description={quote(description)}"
         f"&SignatureValue={signature}"
-        f"&IsTest={1 if settings.robokassa_test_mode else 0}"
     )
+    if settings.robokassa_test_mode:
+        params += "&IsTest=1"
 
     return f"{base_url}?{params}"
 
@@ -243,15 +245,16 @@ async def test_payment():
     signature_str = f"{login}:{out_sum}:{inv_id}:{password1}"
     signature = hashlib.md5(signature_str.encode()).hexdigest()
 
-    base_url = "https://auth.robokassa.ru/Merchant/Index"
+    base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
     payment_url = (
         f"{base_url}"
         f"?MerchantLogin={login}"
         f"&OutSum={out_sum}"
         f"&InvId={inv_id}"
-        f"&Description={description}"
+        f"&Description={quote(description)}"
         f"&SignatureValue={signature}"
-        f"&IsTest={1 if settings.robokassa_test_mode else 0}"
     )
+    if settings.robokassa_test_mode:
+        payment_url += "&IsTest=1"
 
     return {"payment_url": payment_url, "amount": amount, "inv_id": inv_id}
