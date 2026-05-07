@@ -45,14 +45,15 @@ def _generate_robokassa_url(inv_id: int, amount: int, description: str) -> str:
     password1 = settings.robokassa_password1
 
     # Signature: MerchantLogin:OutSum:InvId:Password#1
-    signature_str = f"{login}:{amount}:{inv_id}:{password1}"
+    out_sum = f"{amount:.2f}"
+    signature_str = f"{login}:{out_sum}:{inv_id}:{password1}"
     signature = hashlib.md5(signature_str.encode()).hexdigest()
 
     base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
 
     params = (
         f"MerchantLogin={login}"
-        f"&OutSum={amount}"
+        f"&OutSum={out_sum}"
         f"&InvId={inv_id}"
         f"&Description={description}"
         f"&SignatureValue={signature}"
