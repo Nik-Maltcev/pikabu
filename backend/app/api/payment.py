@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payment")
 
-REPORT_PRICE = 490  # rubles
+REPORT_PRICE = 5  # rubles (TEST — change to 490 for production)
 
 
 class PaymentCreateRequest(BaseModel):
@@ -226,3 +226,32 @@ async def check_payment(
         return {"paid": True, "access_token": payment.access_token}
 
     return {"paid": False}
+
+
+@router.get("/test")
+async def test_payment():
+    """Generate a test Robokassa payment URL (5 RUB) to verify integration works.
+    No database record — just returns a URL to test the flow.
+    """
+    description = "BizMap: тест оплаты"
+    inv_id = 99999  # fixed test invoice
+    amount = 5
+
+    login = settings.robokassa_login
+    password1 = settings.robokassa_password1
+    out_sum = f"{amount:.2f}"
+    signature_str = f"{login}:{out_sum}:{inv_id}:{password1}"
+    signature = hashlib.md5(signature_str.encode()).hexdigest()
+
+    base_url = "https://auth.robokassa.ru/Merchant/Index"
+    payment_url = (
+        f"{base_url}"
+        f"?MerchantLogin={login}"
+        f"&OutSum={out_sum}"
+        f"&InvId={inv_id}"
+        f"&Description={description}"
+        f"&SignatureValue={signature}"
+        f"&IsTest={1 if settings.robokassa_test_mode else 0}"
+    )
+
+    return {"payment_url": payment_url, "amount": amount, "inv_id": inv_id}

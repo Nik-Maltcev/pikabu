@@ -1,10 +1,27 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
 function goToApp() {
   router.push({ name: 'topics' })
+}
+
+const testLoading = ref(false)
+async function testPayment() {
+  testLoading.value = true
+  try {
+    const res = await fetch('/api/payment/test')
+    const data = await res.json()
+    if (data.payment_url) {
+      window.location.href = data.payment_url
+    }
+  } catch (e) {
+    alert('Ошибка: ' + e)
+  } finally {
+    testLoading.value = false
+  }
 }
 </script>
 
@@ -38,6 +55,17 @@ function goToApp() {
         >
           Начать поиск
         </button>
+
+        <!-- TEST PAYMENT BUTTON (remove after testing) -->
+        <div class="mt-4">
+          <button
+            class="bg-red-500 text-white text-sm font-medium px-6 py-2 rounded-lg hover:bg-red-600 transition-colors"
+            :disabled="testLoading"
+            @click="testPayment"
+          >
+            {{ testLoading ? 'Загрузка...' : '🧪 Тест оплаты (5₽)' }}
+          </button>
+        </div>
 
         <!-- Dashboard image -->
         <div class="mt-16 max-w-5xl mx-auto h-96 rounded-xl overflow-hidden border border-[#c6c6cd] relative">
