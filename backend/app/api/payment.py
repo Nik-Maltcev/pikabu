@@ -65,10 +65,16 @@ def _generate_robokassa_url(inv_id: int, amount: int, description: str) -> str:
     return f"{base_url}?{params}"
 
 
-def _verify_result_signature(out_sum: str, inv_id: str, signature: str) -> bool:
-    """Verify Robokassa ResultURL signature using Password#2."""
+def _verify_result_signature(out_sum: str, inv_id: str, signature: str, shp_params: dict = None) -> bool:
+    """Verify Robokassa ResultURL signature using Password#2.
+    Shp_ params must be included in signature in alphabetical order.
+    """
     password2 = settings.robokassa_password2
-    expected_str = f"{out_sum}:{inv_id}:{password2}"
+    parts = [out_sum, inv_id, password2]
+    if shp_params:
+        for key in sorted(shp_params.keys()):
+            parts.append(f"{key}={shp_params[key]}")
+    expected_str = ":".join(parts)
     expected = hashlib.md5(expected_str.encode()).hexdigest().upper()
     return signature.upper() == expected
 
@@ -146,8 +152,14 @@ async def payment_result(
 
     logger.info(f"Robokassa ResultURL: InvId={inv_id}, OutSum={out_sum}")
 
+    # Collect Shp_ params for signature verification
+    shp_params = {}
+    for key in data.keys():
+        if key.startswith("Shp_"):
+            shp_params[key] = data.get(key, "")
+
     # Verify signature
-    if not _verify_result_signature(out_sum, inv_id, signature):
+    if not _verify_result_signature(out_sum, inv_id, signature, shp_params):
         logger.warning(f"Invalid signature for InvId={inv_id}")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
@@ -166,6 +178,50 @@ async def payment_result(
 
     logger.info(f"Payment confirmed: id={payment.id}, report={payment.report_id}")
 
+    # If this is a pre-analysis payment (report_id is None), launch analysis
+    shp_topic_id = data.get("Shp_topic_id", "")
+    shp_days = data.get("Shp_days", "14")
+    if payment.report_id is None and shp_topic_id:
+        import asyncio
+        from app.api.router import _run_analysis_background
+        from app.models.database import AnalysisTask
+        from app.services.topic_manager import TopicManager
+
+        topic_id = int(shp_topic_id)
+        days = int(shp_days) if shp_days else 14
+
+        # Find duplicates and start analysis
+        tm = TopicManager(session)
+        all_topics = await tm.find_duplicates_by_name(topic_id)
+        topic_ids_by_source: dict[str, int] = {}
+        for t in all_topics:
+            topic_ids_by_source[t.source] = t.id
+        sources_label = ",".join(sorted(topic_ids_by_source.keys()))
+
+        # Create task
+        task = AnalysisTask(topic_id=topic_id, status="pending", progress_percent=0, analysis_mode="niche_search")
+        session.add(task)
+        await session.flush()
+        task_id = task.id
+
+        # Store task_id in payment for SuccessURL redirect
+        # We'll use access_token to find the task later
+        payment.report_id = None  # will be set when report is generated
+        await session.commit()
+
+        # Launch background analysis
+        asyncio.create_task(
+            _run_analysis_background(
+                primary_topic_id=topic_id,
+                topic_ids_by_source=topic_ids_by_source,
+                task_id=task_id,
+                days=days,
+                analysis_mode="niche_search",
+                sources_label=sources_label,
+            )
+        )
+        logger.info(f"Paid analysis launched: task={task_id}, topic={topic_id}")
+
     # Robokassa expects "OK{InvId}" response
     return f"OK{inv_id}"
 
@@ -173,9 +229,10 @@ async def payment_result(
 @router.get("/success")
 async def payment_success(
     InvId: int = Query(...),
+    Shp_topic_id: str = Query(default=""),
     session: AsyncSession = Depends(get_session),
 ):
-    """SuccessURL — redirect user back to frontend with access token."""
+    """SuccessURL — redirect user back to frontend."""
     result = await session.execute(
         select(Payment).where(Payment.robokassa_inv_id == InvId)
     )
@@ -183,19 +240,36 @@ async def payment_success(
     if payment is None:
         return RedirectResponse(url=settings.site_url)
 
-    # Redirect to report page with token
-    report_result = await session.execute(
-        select(DBReport).where(DBReport.id == payment.report_id)
-    )
-    report = report_result.scalar_one_or_none()
-    if report is None:
-        return RedirectResponse(url=settings.site_url)
+    # If pre-analysis payment — redirect to topics page (analysis is running in background)
+    if payment.report_id is None and Shp_topic_id:
+        # Find the latest task for this topic
+        from app.models.database import AnalysisTask
+        task_result = await session.execute(
+            select(AnalysisTask)
+            .where(AnalysisTask.topic_id == int(Shp_topic_id))
+            .order_by(AnalysisTask.created_at.desc())
+            .limit(1)
+        )
+        task = task_result.scalar_one_or_none()
+        if task:
+            redirect_url = f"{settings.site_url}/analysis/{task.id}?topicId={Shp_topic_id}"
+            return RedirectResponse(url=redirect_url)
+        return RedirectResponse(url=f"{settings.site_url}/app")
 
-    redirect_url = (
-        f"{settings.site_url}/reports/{report.topic_id}/{report.id}"
-        f"?token={payment.access_token}"
-    )
-    return RedirectResponse(url=redirect_url)
+    # If report payment — redirect to report
+    if payment.report_id:
+        report_result = await session.execute(
+            select(DBReport).where(DBReport.id == payment.report_id)
+        )
+        report = report_result.scalar_one_or_none()
+        if report:
+            redirect_url = (
+                f"{settings.site_url}/reports/{report.topic_id}/{report.id}"
+                f"?token={payment.access_token}"
+            )
+            return RedirectResponse(url=redirect_url)
+
+    return RedirectResponse(url=settings.site_url)
 
 
 @router.get("/check")
