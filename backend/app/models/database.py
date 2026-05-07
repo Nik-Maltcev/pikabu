@@ -229,7 +229,7 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True)
     report_id = Column(
-        Integer, ForeignKey("reports.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("reports.id", ondelete="CASCADE"), nullable=True
     )
     amount = Column(Integer, nullable=False)  # in rubles
     status = Column(String(20), nullable=False, default="pending")  # pending, paid, failed

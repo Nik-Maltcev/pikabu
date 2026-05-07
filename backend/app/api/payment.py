@@ -248,7 +248,7 @@ async def create_payment_for_analysis(
     """
     access_token = secrets.token_hex(32)
     payment = Payment(
-        report_id=0,  # no report yet — will be created after payment
+        report_id=None,  # no report yet — will be created after payment
         amount=REPORT_PRICE,
         status="pending",
         access_token=access_token,
