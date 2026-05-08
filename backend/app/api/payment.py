@@ -230,36 +230,72 @@ async def payment_result(
 async def payment_success(
     InvId: int = Query(...),
     Shp_topic_id: str = Query(default=""),
+    Shp_days: str = Query(default="14"),
+    Shp_fingerprint: str = Query(default=""),
     session: AsyncSession = Depends(get_session),
 ):
     """SuccessURL — redirect user back to frontend."""
+    import asyncio
+
+    logger.info(f"SuccessURL: InvId={InvId}, Shp_topic_id={Shp_topic_id}")
+
     result = await session.execute(
         select(Payment).where(Payment.robokassa_inv_id == InvId)
     )
     payment = result.scalar_one_or_none()
     if payment is None:
+        logger.warning(f"SuccessURL: payment not found for InvId={InvId}")
         return RedirectResponse(url=settings.site_url)
 
     # If pre-analysis payment — redirect to progress page
-    if payment.report_id is None and (payment.task_id or Shp_topic_id):
+    if payment.report_id is None and Shp_topic_id:
+        # If task already created by webhook — use it
         if payment.task_id:
-            redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id or ''}"
+            redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id}"
             return RedirectResponse(url=redirect_url)
-        # Fallback: find the latest task for this topic
-        from app.models.database import AnalysisTask
-        task_result = await session.execute(
-            select(AnalysisTask)
-            .where(AnalysisTask.topic_id == int(Shp_topic_id))
-            .order_by(AnalysisTask.created_at.desc())
-            .limit(1)
-        )
-        task = task_result.scalar_one_or_none()
-        if task:
-            redirect_url = f"{settings.site_url}/analysis/{task.id}?topicId={Shp_topic_id}"
-            return RedirectResponse(url=redirect_url)
-        return RedirectResponse(url=f"{settings.site_url}/app")
 
-    # If report payment — redirect to report
+        # Webhook hasn't fired yet — launch analysis here as fallback
+        if payment.status != "paid":
+            payment.status = "paid"
+            payment.paid_at = datetime.now(timezone.utc)
+
+        from app.api.router import _run_analysis_background
+        from app.models.database import AnalysisTask
+        from app.services.topic_manager import TopicManager
+
+        topic_id = int(Shp_topic_id)
+        days = int(Shp_days) if Shp_days else 14
+
+        tm = TopicManager(session)
+        all_topics = await tm.find_duplicates_by_name(topic_id)
+        topic_ids_by_source: dict[str, int] = {}
+        for t in all_topics:
+            topic_ids_by_source[t.source] = t.id
+        sources_label = ",".join(sorted(topic_ids_by_source.keys()))
+
+        task = AnalysisTask(topic_id=topic_id, status="pending", progress_percent=0, analysis_mode="niche_search")
+        session.add(task)
+        await session.flush()
+        task_id = task.id
+        payment.task_id = str(task_id)
+        await session.commit()
+
+        asyncio.create_task(
+            _run_analysis_background(
+                primary_topic_id=topic_id,
+                topic_ids_by_source=topic_ids_by_source,
+                task_id=task_id,
+                days=days,
+                analysis_mode="niche_search",
+                sources_label=sources_label,
+            )
+        )
+        logger.info(f"SuccessURL fallback: launched analysis task={task_id}")
+
+        redirect_url = f"{settings.site_url}/analysis/{task_id}?topicId={Shp_topic_id}"
+        return RedirectResponse(url=redirect_url)
+
+    # If report payment — redirect to report with token
     if payment.report_id:
         report_result = await session.execute(
             select(DBReport).where(DBReport.id == payment.report_id)
@@ -272,6 +308,7 @@ async def payment_success(
             )
             return RedirectResponse(url=redirect_url)
 
+    logger.warning(f"SuccessURL: no redirect target for InvId={InvId}")
     return RedirectResponse(url=settings.site_url)
 
 
