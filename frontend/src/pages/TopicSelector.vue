@@ -85,16 +85,38 @@ async function onStart() {
 }
 
 const paymentLoading = ref(false)
+const waitingPayment = ref(false)
+let paymentPollTimer: ReturnType<typeof setInterval> | null = null
+
 async function onPaidStart() {
   if (!selectedTopic.value) return
   paymentLoading.value = true
   error.value = ''
   try {
     const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value)
-    window.location.href = result.payment_url
+    // Open Robokassa in new window
+    window.open(result.payment_url, '_blank')
+    // Start polling payment status
+    waitingPayment.value = true
+    paymentLoading.value = false
+    const invId = result.payment_url.match(/InvId=(\d+)/)?.[1]
+    if (invId) {
+      paymentPollTimer = setInterval(async () => {
+        try {
+          const apiBase = import.meta.env.VITE_API_URL || '/api'
+          const res = await fetch(`${apiBase}/payment/status/${invId}`)
+          const data = await res.json()
+          if (data.paid && data.task_id) {
+            clearInterval(paymentPollTimer!)
+            paymentPollTimer = null
+            waitingPayment.value = false
+            router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(data.topic_id || selectedTopic.value?.id) } })
+          }
+        } catch {}
+      }, 3000)
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Ошибка создания платежа'
-  } finally {
     paymentLoading.value = false
   }
 }
@@ -243,8 +265,15 @@ onMounted(async () => {
       <!-- Error -->
       <div v-if="error" class="bg-red-50 text-red-700 border border-red-200 rounded-xl px-4 py-3 text-sm">{{ error }}</div>
 
+      <!-- Waiting for payment -->
+      <div v-if="waitingPayment" class="bg-blue-50 text-blue-800 border border-blue-200 rounded-xl px-5 py-4 text-sm text-center">
+        <div class="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="font-semibold mb-1">⏳ Ожидаем подтверждение оплаты...</p>
+        <p>Завершите оплату в открывшемся окне. Страница обновится автоматически.</p>
+      </div>
+
       <!-- Limit -->
-      <div v-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
+      <div v-else-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
         <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
         <p class="mb-3">Оплатите 5 ₽ — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
         <button

@@ -363,10 +363,27 @@ async def check_payment(
             return {"paid": True, "access_token": paid_payment.access_token}
 
     return {"paid": False}
-    if payment:
-        return {"paid": True, "access_token": payment.access_token}
 
-    return {"paid": False}
+
+@router.get("/status/{inv_id}")
+async def payment_status(
+    inv_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Poll payment status by InvId. Used by frontend after opening Robokassa."""
+    result = await session.execute(
+        select(Payment).where(Payment.robokassa_inv_id == inv_id)
+    )
+    payment = result.scalar_one_or_none()
+    if payment is None:
+        return {"status": "not_found"}
+
+    return {
+        "status": payment.status,
+        "task_id": payment.task_id,
+        "topic_id": payment.topic_id,
+        "paid": payment.status == "paid",
+    }
 
 
 class PaidAnalysisRequest(BaseModel):
