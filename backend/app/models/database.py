@@ -177,6 +177,7 @@ class Report(Base):
     sources = Column(String(50), nullable=False, default="pikabu")
     analysis_mode = Column(String(30), nullable=False, default="topic_analysis")
     niche_data = Column(JSONB, nullable=True)
+    user_id = Column(Integer, nullable=True)  # linked user (optional)
 
     topic = relationship("Topic", back_populates="reports")
     task = relationship("AnalysisTask", back_populates="reports")
@@ -220,6 +221,21 @@ class DeviceLimit(Base):
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index("idx_device_limits_fingerprint", "fingerprint"),)
+
+
+class User(Base):
+    """User account for personal cabinet (phone auth via Twilio)."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    phone = Column(String(20), unique=True, nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("idx_users_phone", "phone"),)
 
 
 class Payment(Base):

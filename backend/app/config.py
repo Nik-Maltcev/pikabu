@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     robokassa_test_mode: bool = False
     site_url: str = "http://localhost:5173"  # Frontend URL for redirects
 
+    # Twilio Verify (SMS auth)
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_verify_service_sid: str = ""
+    jwt_secret: str = "bizmap-jwt-secret-change-me"
+
     # Gemini API
     gemini_max_retries: int = 3
 
