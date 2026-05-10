@@ -15,10 +15,9 @@ function goToApp() {
       <div class="max-w-7xl w-full mx-auto flex justify-between items-center">
         <div class="text-xl font-bold tracking-tight text-slate-900">BizMap</div>
         <div class="hidden md:flex gap-6">
-          <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium" href="#">Поиск ниш</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium" href="#">Аналитика</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium" href="#">Мои отчеты</a>
-          <a class="text-slate-600 hover:text-slate-900 text-sm font-medium" href="#">Тарифы</a>
+          <router-link to="/app" class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</router-link>
+          <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-sm font-medium">Мои отчеты</router-link>
+          <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-sm font-medium">Тарифы</router-link>
         </div>
       </div>
     </nav>

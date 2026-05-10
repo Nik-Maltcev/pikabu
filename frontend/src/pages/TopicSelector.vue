@@ -141,9 +141,8 @@ onMounted(async () => {
           <span class="text-xl font-bold tracking-tight text-slate-900">BizMap</span>
           <div class="hidden md:flex gap-6">
             <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</a>
-            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Аналитика</a>
-            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Мои отчеты</a>
-            <a class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</a>
+            <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Мои отчеты</router-link>
+            <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</router-link>
           </div>
         </div>
       </div>
