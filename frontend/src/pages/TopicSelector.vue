@@ -145,6 +145,7 @@ onMounted(async () => {
             <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-sm font-medium cursor-pointer">Тарифы</router-link>
           </div>
         </div>
+        <router-link to="/account" class="bg-black text-white text-xs font-medium px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
       </div>
     </nav>
 
