@@ -48,17 +48,17 @@ function goToApp() {
               </button>
             </div>
             <!-- Trust badges -->
-            <div class="flex flex-wrap gap-3 md:gap-6 text-sm md:text-sm text-[#45464d]">
+            <div class="flex flex-wrap gap-3 md:gap-6 text-base md:text-base text-[#45464d]">
               <div class="flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-[#006a62] text-base md:text-xl">shield</span>
+                <span class="material-symbols-outlined text-[#006a62] text-xl md:text-xl">shield</span>
                 Безопасная оплата
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-[#006a62] text-base md:text-xl">schedule</span>
+                <span class="material-symbols-outlined text-[#006a62] text-xl md:text-xl">schedule</span>
                 Результат за 5-10 мин
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="material-symbols-outlined text-[#006a62] text-base md:text-xl">support_agent</span>
+                <span class="material-symbols-outlined text-[#006a62] text-xl md:text-xl">support_agent</span>
                 Поддержка 24/7
               </div>
             </div>
@@ -75,7 +75,7 @@ function goToApp() {
             <!-- Floating stats card - visible on lg+ -->
             <div class="hidden lg:block absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-4 border border-[#c6c6cd]">
               <div class="text-2xl font-bold text-[#006a62]">50 000+</div>
-              <div class="text-sm text-[#45464d]">постов проанализировано</div>
+              <div class="text-base text-[#45464d]">постов проанализировано</div>
             </div>
           </div>
         </div>
@@ -87,19 +87,19 @@ function goToApp() {
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-center text-white">
             <div>
               <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">3</div>
-              <div class="text-xs md:text-sm opacity-80">платформы</div>
+              <div class="text-sm md:text-sm opacity-80">платформы</div>
             </div>
             <div>
               <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">100+</div>
-              <div class="text-xs md:text-sm opacity-80">категорий</div>
+              <div class="text-sm md:text-sm opacity-80">категорий</div>
             </div>
             <div>
               <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">5 мин</div>
-              <div class="text-xs md:text-sm opacity-80">анализ</div>
+              <div class="text-sm md:text-sm opacity-80">анализ</div>
             </div>
             <div>
               <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">24/7</div>
-              <div class="text-xs md:text-sm opacity-80">доступность</div>
+              <div class="text-sm md:text-sm opacity-80">доступность</div>
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ function goToApp() {
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">database</span>
               </div>
               <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">Сбор данных</h3>
-              <p class="text-sm text-[#45464d] leading-relaxed">
+              <p class="text-base text-[#45464d] leading-relaxed">
                 Собираем посты и комментарии с Pikabu, Habr и VC.ru по выбранной категории за 14-30 дней.
               </p>
             </div>
@@ -124,7 +124,7 @@ function goToApp() {
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">psychology</span>
               </div>
               <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">ИИ-анализ</h3>
-              <p class="text-sm text-[#45464d] leading-relaxed">
+              <p class="text-base text-[#45464d] leading-relaxed">
                 Нейросеть анализирует боли аудитории, выявляет паттерны и генерирует бизнес-идеи.
               </p>
             </div>
@@ -133,7 +133,7 @@ function goToApp() {
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">description</span>
               </div>
               <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">Готовый отчёт</h3>
-              <p class="text-sm text-[#45464d] leading-relaxed">
+              <p class="text-base text-[#45464d] leading-relaxed">
                 Получаете структурированный отчёт с нишами, JTBD-анализом и планом запуска MVP.
               </p>
             </div>
@@ -260,7 +260,7 @@ function goToApp() {
             <span class="material-symbols-outlined text-4xl text-[#006a62] shrink-0">trending_up</span>
             <div>
               <h3 class="text-xl font-semibold mb-2">Снижение рисков</h3>
-              <p class="text-sm text-[#45464d]">Объективная оценка на основе данных, а не интуиции.</p>
+              <p class="text-base text-[#45464d]">Объективная оценка на основе данных, а не интуиции.</p>
             </div>
           </div>
           <!-- Small -->
@@ -289,7 +289,7 @@ function goToApp() {
             </div>
             <h3 class="text-xl font-semibold mb-3">Начинающие предприниматели</h3>
             <p class="text-[#45464d] mb-4">Ищете первую бизнес-идею? Получите список проверенных ниш с реальным спросом и низким порогом входа.</p>
-            <ul class="text-sm text-[#45464d] space-y-2">
+            <ul class="text-base text-[#45464d] space-y-2">
               <li class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
                 Идеи с минимальными вложениями
@@ -306,7 +306,7 @@ function goToApp() {
             </div>
             <h3 class="text-xl font-semibold mb-3">Действующий бизнес</h3>
             <p class="text-[#45464d] mb-4">Хотите расширить продуктовую линейку или выйти в смежную нишу? Найдите точки роста на основе данных.</p>
-            <ul class="text-sm text-[#45464d] space-y-2">
+            <ul class="text-base text-[#45464d] space-y-2">
               <li class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
                 Анализ смежных рынков
@@ -323,7 +323,7 @@ function goToApp() {
             </div>
             <h3 class="text-xl font-semibold mb-3">Инвесторы и фонды</h3>
             <p class="text-[#45464d] mb-4">Оценивайте рыночный потенциал стартапов и находите перспективные направления для инвестиций.</p>
-            <ul class="text-sm text-[#45464d] space-y-2">
+            <ul class="text-base text-[#45464d] space-y-2">
               <li class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
                 Валидация бизнес-моделей
@@ -363,7 +363,7 @@ function goToApp() {
             <div class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full w-fit mb-4">БЕСПЛАТНО</div>
             <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Превью отчёта</h3>
             <p class="text-3xl font-bold text-[#1b1b1d] mb-4">0 ₽</p>
-            <ul class="text-sm text-[#44474d] space-y-2 mb-6">
+            <ul class="text-base text-[#44474d] space-y-2 mb-6">
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-green-600 text-lg mt-0.5">check</span>
                 3–5 лучших ниш по категории
@@ -394,7 +394,7 @@ function goToApp() {
             <div class="text-xs font-semibold text-[#006a62] bg-[#57fae9]/20 px-3 py-1 rounded-full w-fit mb-4">ПОЛНЫЙ ДОСТУП</div>
             <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Полный отчёт</h3>
             <p class="text-3xl font-bold text-[#1b1b1d] mb-4">4 990 ₽</p>
-            <ul class="text-sm text-[#44474d] space-y-2 mb-6">
+            <ul class="text-base text-[#44474d] space-y-2 mb-6">
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-[#006a62] text-lg mt-0.5">check</span>
                 Все найденные ниши без ограничений
@@ -436,7 +436,7 @@ function goToApp() {
                 <span class="font-medium text-[#1b1b1d] text-sm md:text-base pr-4">Откуда берутся данные для анализа?</span>
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
-              <div class="px-4 md:px-5 pb-4 md:pb-5 text-sm text-[#45464d] leading-relaxed">
+              <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
                 Мы собираем публичные посты и комментарии с трёх русскоязычных площадок: Pikabu, Habr и VC.ru. Это реальные обсуждения реальных людей — не опросы и не фокус-группы.
               </div>
             </details>
@@ -445,7 +445,7 @@ function goToApp() {
                 <span class="font-medium text-[#1b1b1d] text-sm md:text-base pr-4">Сколько времени занимает анализ?</span>
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
-              <div class="px-4 md:px-5 pb-4 md:pb-5 text-sm text-[#45464d] leading-relaxed">
+              <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
                 Обычно 5-10 минут. Можете подождать на странице или оставить email/Telegram — пришлём уведомление когда отчёт будет готов.
               </div>
             </details>
@@ -454,7 +454,7 @@ function goToApp() {
                 <span class="font-medium text-[#1b1b1d] text-sm md:text-base pr-4">Что если ниша мне не подойдёт?</span>
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
-              <div class="px-4 md:px-5 pb-4 md:pb-5 text-sm text-[#45464d] leading-relaxed">
+              <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
                 Отчёт показывает объективную картину на основе данных. Если в категории мало болей или идей — это тоже ценная информация, которая сэкономит вам время. Попробуйте другую категорию — первые 3 анализа бесплатны.
               </div>
             </details>
@@ -463,7 +463,7 @@ function goToApp() {
                 <span class="font-medium text-[#1b1b1d] text-sm md:text-base pr-4">Можно ли вернуть деньги?</span>
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
-              <div class="px-4 md:px-5 pb-4 md:pb-5 text-sm text-[#45464d] leading-relaxed">
+              <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
                 Возврат возможен если отчёт не был сгенерирован из-за технической ошибки. Напишите на nikmaltcev@vk.com в течение 7 дней с момента оплаты.
               </div>
             </details>
@@ -472,7 +472,7 @@ function goToApp() {
                 <span class="font-medium text-[#1b1b1d] text-sm md:text-base pr-4">Как долго хранится отчёт?</span>
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
-              <div class="px-4 md:px-5 pb-4 md:pb-5 text-sm text-[#45464d] leading-relaxed">
+              <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
                 Бессрочно. После оплаты полный отчёт доступен по уникальной ссылке в любое время. Рекомендуем сохранить ссылку или зарегистрироваться — тогда все отчёты будут в личном кабинете.
               </div>
             </details>
