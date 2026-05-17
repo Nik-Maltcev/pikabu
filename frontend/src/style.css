@@ -9,15 +9,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scale up text on mobile/tablet for readability */
+/* Force larger text on mobile */
 @media (max-width: 1023px) {
   html {
-    font-size: 20px;
-  }
-}
-@media (min-width: 1024px) {
-  html {
-    font-size: 16px;
+    zoom: 1.15;
   }
 }
 
