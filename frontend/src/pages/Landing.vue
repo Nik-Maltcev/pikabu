@@ -109,7 +109,7 @@ function goToApp() {
       <section class="bg-[#f6f3f5] py-16 md:py-24">
         <div class="max-w-7xl mx-auto px-4 md:px-6">
           <h2 class="text-2xl md:text-3xl font-semibold tracking-tight text-center mb-12 md:mb-16">Как это работает</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             <div class="bg-white p-6 md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
               <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">database</span>
@@ -240,9 +240,9 @@ function goToApp() {
       <!-- Benefits bento grid -->
       <section class="max-w-7xl mx-auto px-6 py-24">
         <h2 class="text-3xl font-semibold tracking-tight mb-12">Преимущества для старта</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-[240px]">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 auto-rows-[240px]">
           <!-- Large -->
-          <div class="md:col-span-2 md:row-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex flex-col justify-between">
+          <div class="lg:col-span-2 lg:row-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex flex-col justify-between">
             <div>
               <span class="material-symbols-outlined text-4xl text-[#006a62] mb-4">speed</span>
               <h3 class="text-xl font-semibold mb-2">Экономия времени</h3>
@@ -256,7 +256,7 @@ function goToApp() {
             </div>
           </div>
           <!-- Medium -->
-          <div class="md:col-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex items-center gap-6">
+          <div class="lg:col-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex items-center gap-6">
             <span class="material-symbols-outlined text-4xl text-[#006a62] shrink-0">trending_up</span>
             <div>
               <h3 class="text-xl font-semibold mb-2">Снижение рисков</h3>
@@ -282,7 +282,7 @@ function goToApp() {
           <h2 class="text-3xl font-semibold tracking-tight mb-4">Кому подходит BizMap</h2>
           <p class="text-[#45464d] max-w-2xl mx-auto">Наш сервис помогает разным категориям пользователей находить и валидировать бизнес-идеи</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="bg-white p-8 border border-[#c6c6cd] rounded-xl">
             <div class="w-14 h-14 bg-[#006a62]/10 rounded-xl flex items-center justify-center mb-6">
               <span class="material-symbols-outlined text-3xl text-[#006a62]">rocket_launch</span>
@@ -357,7 +357,7 @@ function goToApp() {
           <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Тарифы</h2>
           <p class="text-[#45464d]">Простая и прозрачная модель оплаты</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
           <!-- Free -->
           <div class="bg-white border border-[#c6c6cd] rounded-xl p-6 md:p-8">
             <div class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full w-fit mb-4">БЕСПЛАТНО</div>
