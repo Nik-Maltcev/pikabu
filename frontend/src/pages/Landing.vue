@@ -13,13 +13,13 @@ function goToApp() {
     <!-- Navbar -->
     <nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 flex justify-between items-center px-4 md:px-6 h-14 md:h-16">
       <div class="max-w-7xl w-full mx-auto flex justify-between items-center">
-        <div class="text-lg md:text-xl font-bold tracking-tight text-slate-900">BizMap</div>
+        <div class="text-[38px] md:text-xl font-bold tracking-tight text-slate-900">BizMap</div>
         <div class="hidden md:flex gap-6">
-          <router-link to="/app" class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-sm font-medium">Поиск ниш</router-link>
-          <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-sm font-medium">Мои отчеты</router-link>
-          <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-sm font-medium">Тарифы</router-link>
+          <router-link to="/app" class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-[29px] md:text-sm font-medium">Поиск ниш</router-link>
+          <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[29px] md:text-sm font-medium">Мои отчеты</router-link>
+          <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-[29px] md:text-sm font-medium">Тарифы</router-link>
         </div>
-        <router-link to="/account" class="bg-black text-white text-xs font-medium px-3 md:px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
+        <router-link to="/account" class="bg-black text-white text-[25px] md:text-xs font-medium px-3 md:px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
       </div>
     </nav>
 
@@ -33,7 +33,7 @@ function goToApp() {
               <span class="material-symbols-outlined text-base md:text-lg">verified</span>
               Аналитика на основе реальных данных
             </div>
-            <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
+            <h1 class="text-[62px] md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
               Анализируем 50 000+ постов и находим прибыльные ниши за 5 минут
             </h1>
             <p class="text-base md:text-lg text-[#45464d] mb-5 md:mb-8 leading-relaxed">
