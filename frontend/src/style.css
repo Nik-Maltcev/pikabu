@@ -1,19 +1,23 @@
 @import "tailwindcss";
 
 * { box-sizing: border-box; }
+
+html {
+  font-size: 22px;
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 16px;
+  }
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
   background: #fcf8fa;
   color: #1b1b1d;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Force larger text on mobile */
-@media (max-width: 1023px) {
-  html {
-    zoom: 1.15;
-  }
 }
 
 .material-symbols-outlined {
