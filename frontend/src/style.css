@@ -9,6 +9,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Scale up text on mobile/tablet for readability */
+@media (max-width: 1023px) {
+  html {
+    font-size: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  html {
+    font-size: 16px;
+  }
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }

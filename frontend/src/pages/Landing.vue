@@ -29,29 +29,29 @@ function goToApp() {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <!-- Left: Text -->
           <div class="text-left">
-            <div class="inline-flex items-center gap-2 bg-[#006a62]/10 text-[#006a62] px-3 py-1.5 rounded-full text-xs md:text-sm font-medium mb-4 md:mb-6">
+            <div class="inline-flex items-center gap-2 bg-[#006a62]/10 text-[#006a62] px-3 py-1.5 rounded-full text-sm md:text-sm font-medium mb-4 md:mb-6">
               <span class="material-symbols-outlined text-base md:text-lg">verified</span>
               Аналитика на основе реальных данных
             </div>
-            <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
+            <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
               Найдите прибыльную нишу для бизнеса за 5 минут
             </h1>
-            <p class="text-sm sm:text-base md:text-lg text-[#45464d] mb-5 md:mb-8 leading-relaxed">
+            <p class="text-base md:text-lg text-[#45464d] mb-5 md:mb-8 leading-relaxed">
               ИИ-платформа анализирует тысячи обсуждений на Pikabu, Habr и VC.ru, выявляет боли аудитории и генерирует готовые бизнес-идеи с планом запуска.
             </p>
             <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mb-5 md:mb-8">
               <button
-                class="bg-[#006a62] text-white text-sm sm:text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#005a54] transition-colors shadow-lg"
+                class="bg-[#006a62] text-white text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#005a54] transition-colors shadow-lg"
                 @click="goToApp"
               >
                 Начать анализ бесплатно
               </button>
-              <a href="#partners" class="border-2 border-[#006a62] text-[#006a62] text-sm sm:text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#006a62]/5 transition-colors text-center">
+              <a href="#partners" class="border-2 border-[#006a62] text-[#006a62] text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#006a62]/5 transition-colors text-center">
                 Для партнёров
               </a>
             </div>
             <!-- Trust badges -->
-            <div class="flex flex-wrap gap-3 md:gap-6 text-xs md:text-sm text-[#45464d]">
+            <div class="flex flex-wrap gap-3 md:gap-6 text-sm md:text-sm text-[#45464d]">
               <div class="flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[#006a62] text-base md:text-xl">shield</span>
                 Безопасная оплата
