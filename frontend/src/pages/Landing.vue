@@ -114,8 +114,8 @@ function goToApp() {
               <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">database</span>
               </div>
-              <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">Сбор данных</h3>
-              <p class="text-base text-[#45464d] leading-relaxed">
+              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">Сбор данных</h3>
+              <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Собираем посты и комментарии с Pikabu, Habr и VC.ru по выбранной категории за 14-30 дней.
               </p>
             </div>
@@ -123,8 +123,8 @@ function goToApp() {
               <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">psychology</span>
               </div>
-              <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">ИИ-анализ</h3>
-              <p class="text-base text-[#45464d] leading-relaxed">
+              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">ИИ-анализ</h3>
+              <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Нейросеть анализирует боли аудитории, выявляет паттерны и генерирует бизнес-идеи.
               </p>
             </div>
@@ -132,8 +132,8 @@ function goToApp() {
               <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">description</span>
               </div>
-              <h3 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">Готовый отчёт</h3>
-              <p class="text-base text-[#45464d] leading-relaxed">
+              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">Готовый отчёт</h3>
+              <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Получаете структурированный отчёт с нишами, JTBD-анализом и планом запуска MVP.
               </p>
             </div>
