@@ -67,7 +67,7 @@ function goToApp() {
             </div>
           </div>
           <!-- Right: Dashboard image -->
-          <div class="relative mt-6 lg:mt-0 hidden md:block">
+          <div class="relative hidden lg:block">
             <div class="rounded-xl overflow-hidden border border-[#c6c6cd] shadow-2xl">
               <img
                 alt="Dashboard Preview"
