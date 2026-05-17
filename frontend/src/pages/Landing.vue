@@ -46,9 +46,6 @@ function goToApp() {
               >
                 Начать анализ бесплатно
               </button>
-              <a href="#partners" class="border-2 border-[#006a62] text-[#006a62] text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#006a62]/5 transition-colors text-center">
-                Для партнёров
-              </a>
             </div>
             <!-- Trust badges -->
             <div class="flex flex-wrap gap-3 md:gap-6 text-sm md:text-sm text-[#45464d]">
@@ -278,42 +275,6 @@ function goToApp() {
         </div>
       </section>
 
-      <!-- For Partners -->
-      <section id="partners" class="bg-gradient-to-br from-[#006a62] to-[#004d47] py-16 md:py-24">
-        <div class="max-w-5xl mx-auto px-4 md:px-6">
-          <div class="text-center text-white">
-            <div class="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <span class="material-symbols-outlined text-lg">handshake</span>
-              Партнёрская программа
-            </div>
-            <h2 class="text-2xl md:text-4xl font-bold mb-4 md:mb-6">Разместите BizMap на своей витрине</h2>
-            <p class="text-base md:text-lg opacity-90 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Предлагаем банкам, акселераторам и бизнес-сообществам добавить BizMap в каталог сервисов для предпринимателей. Помогите вашим клиентам найти прибыльную нишу.
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8 max-w-3xl mx-auto">
-              <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20">
-                <span class="material-symbols-outlined text-[#57fae9] text-3xl mb-3">account_balance</span>
-                <div class="font-semibold mb-1">Банки</div>
-                <div class="text-sm opacity-70">Витрина сервисов для РКО</div>
-              </div>
-              <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20">
-                <span class="material-symbols-outlined text-[#57fae9] text-3xl mb-3">rocket_launch</span>
-                <div class="font-semibold mb-1">Акселераторы</div>
-                <div class="text-sm opacity-70">Инструмент для резидентов</div>
-              </div>
-              <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20">
-                <span class="material-symbols-outlined text-[#57fae9] text-3xl mb-3">groups</span>
-                <div class="font-semibold mb-1">Сообщества</div>
-                <div class="text-sm opacity-70">Польза для участников</div>
-              </div>
-            </div>
-            <a href="mailto:nikmaltcev@vk.com?subject=Партнёрство BizMap" class="inline-flex items-center gap-2 bg-white text-[#006a62] font-semibold px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors">
-              <span class="material-symbols-outlined">mail</span>
-              Обсудить сотрудничество
-            </a>
-          </div>
-        </div>
-      </section>
 
       <!-- Use Cases -->
       <section class="max-w-7xl mx-auto px-6 py-24">
