@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTopics, startAnalysis, checkLimit, createPaidAnalysis } from '../api/client'
+import { getTopics, startAnalysis, checkLimit, createPaidAnalysis, login, register, checkAuth } from '../api/client'
 import { generateFingerprint } from '../utils/fingerprint'
 import type { Topic } from '../types/api'
 
@@ -19,6 +19,23 @@ const showAllCategories = ref(false)
 const fingerprint = ref('')
 const remainingAnalyses = ref(3)
 const limitReached = ref(false)
+
+// Contact form state
+const showContactForm = ref(false)
+const contactType = ref<'email' | 'telegram'>('email')
+const contactValue = ref('')
+const contactError = ref('')
+const waitOnPage = ref(false)
+
+// Auth state
+const isAuthenticated = ref(false)
+const authToken = ref('')
+const showAuthModal = ref(false)
+const authMode = ref<'login' | 'register'>('login')
+const authEmail = ref('')
+const authPassword = ref('')
+const authError = ref('')
+const authLoading = ref(false)
 
 const recommendedTags = ['Маркетинг', 'AI', 'Разработка', 'Еда']
 
@@ -68,13 +85,129 @@ function selectTopic(topic: Topic) {
 
 const canStart = computed(() => selectedTopic.value !== null && !limitReached.value)
 
+function validateContact(): boolean {
+  contactError.value = ''
+  
+  // If authenticated or waiting on page, no contact needed
+  if (isAuthenticated.value || waitOnPage.value) {
+    return true
+  }
+  
+  const val = contactValue.value.trim()
+  
+  if (!val) {
+    contactError.value = 'Введите контакт для уведомления'
+    return false
+  }
+  
+  if (contactType.value === 'email') {
+    if (!val.includes('@') || !val.includes('.')) {
+      contactError.value = 'Введите корректный email'
+      return false
+    }
+  } else if (contactType.value === 'telegram') {
+    const username = val.replace(/^@/, '')
+    if (username.length < 3) {
+      contactError.value = 'Введите корректный username Telegram'
+      return false
+    }
+  }
+  
+  return true
+}
+
+function onNextClick() {
+  if (!canStart.value) return
+  // Show auth modal first (user can skip)
+  showAuthModal.value = true
+}
+
+function onBackToSelection() {
+  showContactForm.value = false
+  contactError.value = ''
+}
+
+// Auth functions
+async function onLogin() {
+  authError.value = ''
+  if (!authEmail.value || !authPassword.value) {
+    authError.value = 'Заполните все поля'
+    return
+  }
+  authLoading.value = true
+  try {
+    const res = await login(authEmail.value, authPassword.value)
+    authToken.value = res.token
+    isAuthenticated.value = true
+    localStorage.setItem('authToken', res.token)
+    showAuthModal.value = false
+    // Continue to contact form
+    showContactForm.value = true
+  } catch (e: any) {
+    authError.value = e?.response?.data?.detail || 'Ошибка входа'
+  } finally {
+    authLoading.value = false
+  }
+}
+
+async function onRegister() {
+  authError.value = ''
+  if (!authEmail.value || !authPassword.value) {
+    authError.value = 'Заполните все поля'
+    return
+  }
+  if (authPassword.value.length < 6) {
+    authError.value = 'Пароль минимум 6 символов'
+    return
+  }
+  authLoading.value = true
+  try {
+    const res = await register(authEmail.value, authPassword.value)
+    authToken.value = res.token
+    isAuthenticated.value = true
+    localStorage.setItem('authToken', res.token)
+    showAuthModal.value = false
+    // Continue to contact form
+    showContactForm.value = true
+  } catch (e: any) {
+    authError.value = e?.response?.data?.detail || 'Ошибка регистрации'
+  } finally {
+    authLoading.value = false
+  }
+}
+
+function onLogout() {
+  authToken.value = ''
+  isAuthenticated.value = false
+  localStorage.removeItem('authToken')
+}
+
+function onSkipAuth() {
+  showAuthModal.value = false
+  showContactForm.value = true
+}
+
 async function onStart() {
   if (!canStart.value) return
+  if (!validateContact()) return
+  
   analyzing.value = true
   error.value = ''
   try {
     const topicId = selectedTopic.value!.id
-    const res = await startAnalysis(topicId, selectedDays.value, fingerprint.value)
+    const contact = contactType.value === 'telegram' 
+      ? contactValue.value.trim().replace(/^@/, '') 
+      : contactValue.value.trim()
+    
+    const res = await startAnalysis(
+      topicId, 
+      selectedDays.value, 
+      fingerprint.value, 
+      waitOnPage.value ? '' : contactType.value, 
+      waitOnPage.value ? '' : contact,
+      waitOnPage.value,
+      authToken.value || undefined
+    )
     remainingAnalyses.value = Math.max(0, remainingAnalyses.value - 1)
     if (remainingAnalyses.value <= 0) limitReached.value = true
     router.push({ name: 'analysis', params: { taskId: res.task_id }, query: { topicId: String(topicId) } })
@@ -123,6 +256,23 @@ async function onPaidStart() {
 
 onMounted(async () => {
   fingerprint.value = await generateFingerprint()
+  
+  // Check saved auth token
+  const savedToken = localStorage.getItem('authToken')
+  if (savedToken) {
+    try {
+      const authCheck = await checkAuth(savedToken)
+      if (authCheck.authenticated) {
+        authToken.value = savedToken
+        isAuthenticated.value = true
+      } else {
+        localStorage.removeItem('authToken')
+      }
+    } catch {
+      localStorage.removeItem('authToken')
+    }
+  }
+  
   try {
     const limit = await checkLimit(fingerprint.value)
     remainingAnalyses.value = limit.remaining
@@ -275,13 +425,13 @@ onMounted(async () => {
       <!-- Limit -->
       <div v-else-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
         <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
-        <p class="mb-3">Оплатите 5 ₽ — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
+        <p class="mb-3">Оплатите 4 990 ₽ — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
         <button
           class="bg-[#006a62] text-white text-sm font-medium px-6 py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
           :disabled="paymentLoading"
           @click="onPaidStart"
         >
-          {{ paymentLoading ? 'Переход к оплате...' : 'Оплатить и запустить анализ — 5 ₽' }}
+          {{ paymentLoading ? 'Переход к оплате...' : 'Оплатить и запустить анализ — 4 990 ₽' }}
         </button>
       </div>
       <div v-else-if="limitReached && !selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
@@ -295,20 +445,193 @@ onMounted(async () => {
         </span>
         <span v-else></span>
         <button
-          v-if="!limitReached"
+          v-if="!limitReached && !showContactForm"
           class="bg-black text-white text-base px-8 py-4 rounded-xl flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
           :disabled="!canStart || analyzing"
-          @click="onStart"
+          @click="onNextClick"
         >
-          <template v-if="analyzing">
-            <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Анализируем…
-          </template>
-          <template v-else>
-            Далее
-            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
-          </template>
+          Далее
+          <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
         </button>
+      </div>
+
+      <!-- Auth Modal -->
+      <div v-if="showAuthModal && !limitReached" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-[#1b1b1d]">
+              {{ authMode === 'login' ? 'Вход в аккаунт' : 'Регистрация' }}
+            </h2>
+            <button @click="showAuthModal = false" class="text-[#76777d] hover:text-[#1b1b1d]">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <p class="text-sm text-[#45464d] mb-6">
+            {{ authMode === 'login' ? 'Войдите, чтобы сохранять отчёты в личном кабинете' : 'Создайте аккаунт для сохранения отчётов' }}
+          </p>
+
+          <div class="space-y-4 mb-4">
+            <input
+              v-model="authEmail"
+              type="email"
+              placeholder="Email"
+              class="w-full bg-[#fcf8fa] border border-[#c6c6cd] rounded-lg py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#006a62]"
+              @keyup.enter="authMode === 'login' ? onLogin() : onRegister()"
+            />
+            <input
+              v-model="authPassword"
+              type="password"
+              placeholder="Пароль"
+              class="w-full bg-[#fcf8fa] border border-[#c6c6cd] rounded-lg py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#006a62]"
+              @keyup.enter="authMode === 'login' ? onLogin() : onRegister()"
+            />
+          </div>
+
+          <p v-if="authError" class="text-red-600 text-sm mb-4">{{ authError }}</p>
+
+          <div class="flex gap-3 mb-4">
+            <button
+              class="flex-1 bg-black text-white py-3 px-4 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-30"
+              :disabled="authLoading"
+              @click="authMode === 'login' ? onLogin() : onRegister()"
+            >
+              {{ authLoading ? 'Загрузка...' : (authMode === 'login' ? 'Войти' : 'Создать аккаунт') }}
+            </button>
+          </div>
+
+          <div class="text-center text-sm text-[#45464d] mb-4">
+            <span v-if="authMode === 'login'">
+              Нет аккаунта? 
+              <button class="text-[#006a62] hover:underline" @click="authMode = 'register'; authError = ''">Зарегистрироваться</button>
+            </span>
+            <span v-else>
+              Уже есть аккаунт? 
+              <button class="text-[#006a62] hover:underline" @click="authMode = 'login'; authError = ''">Войти</button>
+            </span>
+          </div>
+
+          <div class="border-t border-[#e4e2e4] pt-4">
+            <button
+              class="w-full py-3 px-4 rounded-lg border border-[#c6c6cd] text-sm font-medium text-[#45464d] hover:border-[#1b1b1d] hover:text-[#1b1b1d]"
+              @click="onSkipAuth"
+            >
+              Продолжить без регистрации →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact Form Modal -->
+      <div v-if="showContactForm && !limitReached && !showAuthModal" class="bg-white border border-[#c6c6cd] rounded-xl p-6 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-[#1b1b1d]">
+            {{ isAuthenticated ? 'Запуск анализа' : 'Куда отправить результат?' }}
+          </h2>
+          <button @click="onBackToSelection" class="text-[#76777d] hover:text-[#1b1b1d] transition-colors">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        
+        <!-- Authenticated user info -->
+        <div v-if="isAuthenticated" class="bg-[#f0fdf9] border border-[#d1fae5] rounded-lg p-4 mb-6">
+          <div class="flex items-center gap-2 text-sm text-[#006a62]">
+            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+            <span>Вы авторизованы. Отчёт сохранится в личном кабинете.</span>
+          </div>
+        </div>
+
+        <!-- Guest options -->
+        <div v-else>
+          <p class="text-sm text-[#45464d] mb-4">Анализ занимает 5-10 минут. Выберите как получить результат:</p>
+
+          <!-- Wait on page option -->
+          <label class="flex items-center gap-3 p-4 border rounded-lg mb-3 cursor-pointer transition-colors"
+            :class="waitOnPage ? 'border-[#006a62] bg-[#f0fdf9]' : 'border-[#c6c6cd] hover:border-[#006a62]'"
+          >
+            <input type="radio" v-model="waitOnPage" :value="true" class="w-4 h-4 text-[#006a62]" />
+            <div>
+              <div class="text-sm font-medium text-[#1b1b1d]">Подождать на странице</div>
+              <div class="text-xs text-[#76777d]">Результат появится здесь через 5-10 минут</div>
+            </div>
+          </label>
+
+          <!-- Send notification option -->
+          <label class="flex items-center gap-3 p-4 border rounded-lg mb-4 cursor-pointer transition-colors"
+            :class="!waitOnPage ? 'border-[#006a62] bg-[#f0fdf9]' : 'border-[#c6c6cd] hover:border-[#006a62]'"
+          >
+            <input type="radio" v-model="waitOnPage" :value="false" class="w-4 h-4 text-[#006a62]" />
+            <div>
+              <div class="text-sm font-medium text-[#1b1b1d]">Отправить уведомление</div>
+              <div class="text-xs text-[#76777d]">Пришлём ссылку на готовый отчёт</div>
+            </div>
+          </label>
+
+          <!-- Contact input (only if not waiting) -->
+          <div v-if="!waitOnPage" class="mb-4">
+            <div class="flex gap-3 mb-3">
+              <button
+                class="flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2"
+                :class="contactType === 'email' ? 'bg-[#006a62] text-white border-[#006a62]' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd]'"
+                @click="contactType = 'email'"
+              >
+                <span class="material-symbols-outlined text-[18px]">mail</span>
+                Email
+              </button>
+              <button
+                class="flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2"
+                :class="contactType === 'telegram' ? 'bg-[#006a62] text-white border-[#006a62]' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd]'"
+                @click="contactType = 'telegram'"
+              >
+                <span class="material-symbols-outlined text-[18px]">send</span>
+                Telegram
+              </button>
+            </div>
+            <input
+              v-model="contactValue"
+              type="text"
+              class="w-full bg-[#fcf8fa] border border-[#c6c6cd] rounded-lg py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#006a62]"
+              :placeholder="contactType === 'email' ? 'your@email.com' : '@username'"
+            />
+            <p v-if="contactError" class="text-red-600 text-sm mt-2">{{ contactError }}</p>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="bg-[#f6f3f5] rounded-lg p-4 mb-6">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-[#45464d]">Категория:</span>
+            <span class="font-medium text-[#1b1b1d]">{{ selectedTopic?.name }}</span>
+          </div>
+          <div class="flex items-center justify-between text-sm mt-2">
+            <span class="text-[#45464d]">Период:</span>
+            <span class="font-medium text-[#1b1b1d]">{{ selectedDays }} дней</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3">
+          <button
+            class="flex-1 py-3 px-4 rounded-lg border border-[#c6c6cd] text-sm font-medium text-[#45464d] hover:border-[#1b1b1d] hover:text-[#1b1b1d] transition-colors"
+            @click="onBackToSelection"
+          >
+            Назад
+          </button>
+          <button
+            class="flex-1 bg-black text-white py-3 px-4 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            :disabled="analyzing"
+            @click="onStart"
+          >
+            <template v-if="analyzing">
+              <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Запускаем…
+            </template>
+            <template v-else>
+              Запустить анализ
+              <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+            </template>
+          </button>
+        </div>
       </div>
     </main>
 

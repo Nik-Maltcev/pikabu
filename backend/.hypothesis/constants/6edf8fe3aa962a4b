@@ -1,0 +1,4 @@
+# file: C:\Users\uzer\Downloads\MiroFish-main\PIKABU\backend\app\config.py
+# hypothesis_version: 6.150.2
+
+[16384, 20000, 131072, ',', '.env', 'deepseek', 'deepseek-v4-flash', 'env_file', 'env_file_encoding', 'gemini-2.5-flash', 'glm-4.7-flash', 'utf-8']

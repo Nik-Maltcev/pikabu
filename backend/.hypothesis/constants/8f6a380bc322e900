@@ -1,0 +1,4 @@
+# file: C:\Users\uzer\Downloads\MiroFish-main\PIKABU\backend\app\services\pipeline.py
+# hypothesis_version: 6.150.2
+
+[100, 'aggregating', 'body', 'chunk_analysis', 'comments', 'comments_count', 'completed', 'failed', 'hot_topics', 'model_dump', 'parsing', 'pending', 'pikabu_comment_id', 'pikabu_post_id', 'published_at', 'rating', 'title', 'topics_found', 'trending_discussions', 'url', 'user_problems']

@@ -83,7 +83,11 @@ export interface TopicListResponse {
 
 export interface AnalysisStartRequest {
   topic_id: number
+  days?: number
   analysis_mode?: string
+  fingerprint?: string
+  contact_type: string  // "email" or "telegram"
+  contact_value: string // email address or telegram username
 }
 
 export interface AnalysisStartResponse {
@@ -101,6 +105,8 @@ export interface AnalysisStatusResponse {
   error_message: string | null
   report_id: number | null
   analysis_mode?: string
+  contact_type?: string | null
+  contact_value?: string | null
 }
 
 // --- Report models ---

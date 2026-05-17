@@ -1,14 +1,20 @@
-"""Auth API — phone verification via Twilio Verify + JWT tokens."""
+"""Auth API — email/password authentication + JWT tokens.
+
+Two modes:
+1. With registration: email + password → account → reports saved
+2. Without registration: just provide contact (email/telegram) for notification
+"""
 
 import logging
+import hashlib
+import secrets
 from datetime import datetime, timezone, timedelta
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from twilio.rest import Client as TwilioClient
 
 from app.config import settings
 from app.database import get_session
@@ -22,20 +28,29 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
 
 
-def _get_twilio_client():
-    return TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
+def _hash_password(password: str) -> str:
+    """Hash password using SHA-256 + salt (simple but secure enough)."""
+    salt = settings.jwt_secret[:16]
+    return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
 
 
-def _create_token(user_id: int, phone: str) -> str:
+def _verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash."""
+    return _hash_password(password) == password_hash
+
+
+def _create_token(user_id: int, email: str) -> str:
+    """Create JWT token for authenticated user."""
     payload = {
         "user_id": user_id,
-        "phone": phone,
+        "email": email,
         "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
 
 def _decode_token(token: str) -> dict:
+    """Decode and validate JWT token."""
     try:
         return jwt.decode(token, settings.jwt_secret, algorithms=[JWT_ALGORITHM])
     except jwt.ExpiredSignatureError:
@@ -62,83 +77,105 @@ async def get_current_user(
     return result.scalar_one_or_none()
 
 
+# --- Request/Response Models ---
+
+
+class RegisterRequest(BaseModel):
+    """Register new account."""
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    """Login with email/password."""
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    """User info response."""
+    id: int
+    email: str | None
+    phone: str | None
+
+
 # --- Endpoints ---
 
 
-class SendCodeRequest(BaseModel):
-    phone: str  # e.g. "+79001234567"
-
-
-class VerifyCodeRequest(BaseModel):
-    phone: str
-    code: str
-
-
-@router.post("/send-code")
-async def send_code(request: SendCodeRequest):
-    """Send SMS verification code via Twilio Verify."""
-    phone = request.phone.strip()
-    if not phone.startswith("+"):
-        phone = "+" + phone
-
-    try:
-        client = _get_twilio_client()
-        verification = client.verify.v2.services(
-            settings.twilio_verify_service_sid
-        ).verifications.create(to=phone, channel="sms")
-        logger.info(f"Verification sent to {phone}: status={verification.status}")
-        return {"success": True, "status": verification.status}
-    except Exception as e:
-        logger.error(f"Twilio send-code error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/verify")
-async def verify_code(
-    request: VerifyCodeRequest,
+@router.post("/register")
+async def register(
+    request: RegisterRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Verify SMS code and return JWT token."""
-    phone = request.phone.strip()
-    if not phone.startswith("+"):
-        phone = "+" + phone
+    """Register new account with email/password (no email verification)."""
+    email = request.email.strip().lower()
+    password = request.password.strip()
 
-    try:
-        client = _get_twilio_client()
-        check = client.verify.v2.services(
-            settings.twilio_verify_service_sid
-        ).verification_checks.create(to=phone, code=request.code)
+    # Validate
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-        if check.status != "approved":
-            raise HTTPException(status_code=400, detail="Invalid code")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Twilio verify error: {e}")
-        raise HTTPException(status_code=400, detail="Verification failed")
-
-    # Find or create user
+    # Check if email already exists
     result = await session.execute(
-        select(User).where(User.phone == phone)
+        select(User).where(User.email == email)
     )
-    user = result.scalar_one_or_none()
+    existing = result.scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already registered")
 
-    if user is None:
-        user = User(phone=phone)
-        session.add(user)
-        await session.flush()
-
-    user.last_login_at = datetime.now(timezone.utc)
+    # Create user
+    user = User(
+        email=email,
+        password_hash=_hash_password(password),
+    )
+    session.add(user)
     await session.commit()
+    await session.refresh(user)
 
-    token = _create_token(user.id, user.phone)
-    logger.info(f"User authenticated: id={user.id}, phone={phone}")
+    token = _create_token(user.id, user.email)
+    logger.info(f"User registered: id={user.id}, email={email}")
 
     return {
         "success": True,
         "token": token,
-        "user": {"id": user.id, "phone": user.phone},
+        "user": {"id": user.id, "email": user.email},
+    }
+
+
+@router.post("/login")
+async def login(
+    request: LoginRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Login with email/password."""
+    email = request.email.strip().lower()
+    password = request.password.strip()
+
+    # Find user
+    result = await session.execute(
+        select(User).where(User.email == email)
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None or not user.password_hash:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not _verify_password(password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Update last login
+    user.last_login_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    token = _create_token(user.id, user.email)
+    logger.info(f"User logged in: id={user.id}, email={email}")
+
+    return {
+        "success": True,
+        "token": token,
+        "user": {"id": user.id, "email": user.email},
     }
 
 
@@ -161,7 +198,7 @@ async def get_me(
     reports = result.scalars().all()
 
     return {
-        "user": {"id": user.id, "phone": user.phone},
+        "user": {"id": user.id, "email": user.email, "phone": user.phone},
         "reports": [
             {
                 "id": r.id,
@@ -197,3 +234,18 @@ async def link_report(
     await session.commit()
 
     return {"success": True}
+
+
+@router.get("/check")
+async def check_auth(
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    """Check if user is authenticated (for frontend)."""
+    user = await get_current_user(authorization, session)
+    if user is None:
+        return {"authenticated": False}
+    return {
+        "authenticated": True,
+        "user": {"id": user.id, "email": user.email},
+    }

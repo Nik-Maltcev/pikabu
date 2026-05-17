@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,7 @@ from app.models.schemas import (
 )
 from app.services.pipeline import AnalysisAlreadyRunningError, run_full_analysis
 from app.services.topic_manager import TopicManager
+from app.services.task_queue import analysis_queue
 
 logger = logging.getLogger(__name__)
 
@@ -216,18 +217,54 @@ async def _run_parse_only_background(
 @router.post("/analysis/start", response_model=AnalysisStartResponse)
 async def start_analysis(
     request: AnalysisStartRequest,
+    authorization: str = Header(default=""),
     session: AsyncSession = Depends(get_session),
 ) -> AnalysisStartResponse:
     """Start a new analysis task for the given topic.
 
     Automatically finds duplicate category names across all platforms
     and parses them all together.
+    
+    Two modes:
+    1. Authenticated user (has valid token) - report linked to account
+    2. Guest - must provide contact OR wait_on_page=True
     """
+    from app.api.auth import get_current_user
+    
     FREE_ANALYSIS_LIMIT = 3
 
     # Validate analysis_mode
     if request.analysis_mode not in ("topic_analysis", "niche_search"):
         raise HTTPException(status_code=400, detail="analysis_mode must be 'topic_analysis' or 'niche_search'")
+
+    # Check if user is authenticated
+    user = await get_current_user(authorization, session)
+    user_id = user.id if user else None
+    
+    # Validate contact info (required for guests unless wait_on_page)
+    contact_type = request.contact_type.strip() if request.contact_type else ""
+    contact_value = request.contact_value.strip() if request.contact_value else ""
+    
+    if not user and not request.wait_on_page:
+        # Guest must provide contact info
+        if not contact_type or not contact_value:
+            raise HTTPException(
+                status_code=400, 
+                detail="Укажите контакт для уведомления или выберите 'подождать на странице'"
+            )
+    
+    if contact_type and contact_type not in ("email", "telegram"):
+        raise HTTPException(status_code=400, detail="contact_type must be 'email' or 'telegram'")
+    
+    # Basic validation for contact value
+    if contact_type == "email" and contact_value:
+        if "@" not in contact_value or "." not in contact_value:
+            raise HTTPException(status_code=400, detail="Invalid email format")
+    elif contact_type == "telegram" and contact_value:
+        # Remove @ prefix if present, store without it
+        contact_value = contact_value.lstrip("@")
+        if len(contact_value) < 3:
+            raise HTTPException(status_code=400, detail="Invalid telegram username")
 
     # Rate limiting by browser fingerprint
     if request.fingerprint:
@@ -270,20 +307,24 @@ async def start_analysis(
     sources_label = ",".join(sources)
 
     try:
-        # Create the task record
+        # Create the task record with contact info
         task = AnalysisTask(
             topic_id=request.topic_id,
-            status="pending",
+            status="queued",
             progress_percent=0,
             analysis_mode=request.analysis_mode,
+            contact_type=contact_type or None,
+            contact_value=contact_value or None,
+            user_id=user_id,
         )
         session.add(task)
         await session.flush()
         task_id = task.id
 
-        # Launch background analysis
-        asyncio.create_task(
-            _run_analysis_background(
+        # Add to queue instead of running immediately
+        # This prevents overloading LLM APIs when multiple users start analyses
+        def make_coro():
+            return _run_analysis_background(
                 primary_topic_id=request.topic_id,
                 topic_ids_by_source=topic_ids_by_source,
                 task_id=task_id,
@@ -291,7 +332,9 @@ async def start_analysis(
                 analysis_mode=request.analysis_mode,
                 sources_label=sources_label,
             )
-        )
+        
+        queue_position = await analysis_queue.enqueue(task_id, request.topic_id, make_coro)
+        logger.info("Task %s queued at position %d", task_id, queue_position)
 
         # Increment fingerprint usage counter
         if request.fingerprint:
@@ -352,6 +395,8 @@ async def get_analysis_status(
         error_message=task.error_message,
         report_id=report_id,
         analysis_mode=task.analysis_mode or "topic_analysis",
+        contact_type=task.contact_type,
+        contact_value=task.contact_value,
     )
 
 
@@ -529,6 +574,11 @@ async def _run_analysis_background(
     Creates its own DB session so the request session can be closed.
     Automatically parses all platforms where a matching category was found.
 
+    NEW BEHAVIOR (pre-parsed data):
+    - If posts exist in DB for the topic, uses them directly (fast!)
+    - Optionally updates comments incrementally
+    - Falls back to full parsing if no data in DB
+
     Args:
         primary_topic_id: The topic ID the user originally selected.
         topic_ids_by_source: Mapping of source → topic_id for all matched categories.
@@ -542,6 +592,8 @@ async def _run_analysis_background(
         primary_topic_id, task_id, sources_label, analysis_mode,
     )
 
+    from datetime import timedelta
+    from sqlalchemy import func
     from app.database import async_session
     from app.services.analyzer import AnalyzerError, AnalyzerService
     from app.services.cache import CacheService
@@ -549,6 +601,7 @@ async def _run_analysis_background(
     from app.services.parser import ParserError, ParserService
     from app.services.habr_parser import HabrParserError, HabrParserService
     from app.services.vcru_parser import VcruParserError, VcruParserService
+    from app.services.background_parser import BackgroundParser
     from app.models.database import PartialResult as DBPartialResult, Post, Report as DBReport
     from app.models.schemas import PartialResult
     from app.services.pipeline import _update_task, _load_posts_as_dicts, _save_partial_result_to_db
@@ -570,45 +623,97 @@ async def _run_analysis_background(
             partial_results: list[PartialResult] = []
 
             try:
-                # Phase 1: Parsing (0% → 50%) — parse each source proportionally
-                parse_share = 50.0 / max(num_sources, 1)
+                # Check if we have pre-parsed data in DB
+                since = datetime.now(timezone.utc) - timedelta(days=days)
+                total_posts_in_db = 0
+                
+                for tid in topic_ids_by_source.values():
+                    count_result = await session.execute(
+                        select(func.count(Post.id))
+                        .where(Post.topic_id == tid)
+                        .where(Post.published_at >= since)
+                    )
+                    total_posts_in_db += count_result.scalar() or 0
 
-                for idx, src in enumerate(source_list):
-                    tid = topic_ids_by_source[src]
-                    base_progress = int(idx * parse_share)
+                use_preparsed = total_posts_in_db >= 10  # Use DB if we have at least 10 posts
+                logger.info(
+                    "Topic %s: found %d posts in DB (use_preparsed=%s)",
+                    primary_topic_id, total_posts_in_db, use_preparsed
+                )
 
-                    if src == "pikabu":
-                        parser = ParserService(session)
-                        stage_label = "Загрузка постов с Pikabu..."
-                    elif src == "habr":
-                        parser = HabrParserService(session)
-                        stage_label = "Загрузка статей с Habr..."
-                    elif src == "vcru":
-                        parser = VcruParserService(session)
-                        stage_label = "Загрузка статей с VC.ru..."
-                    else:
-                        continue
-
+                if use_preparsed:
+                    # FAST PATH: Use pre-parsed data + incremental comment update
                     await _update_task(
                         session, task,
-                        status="parsing",
-                        current_stage=stage_label,
-                        progress_percent=base_progress,
+                        status="updating",
+                        current_stage="Обновление комментариев...",
+                        progress_percent=5,
                     )
                     await session.commit()
 
-                    current_share = parse_share
+                    # Incremental comment update (optional, can be skipped for speed)
+                    bg_parser = BackgroundParser(session)
+                    update_share = 40.0 / max(num_sources, 1)
+                    
+                    for idx, (src, tid) in enumerate(topic_ids_by_source.items()):
+                        base_progress = 5 + int(idx * update_share)
+                        
+                        async def _progress(stage: str, percent: int, title: str, _base=base_progress, _share=update_share):
+                            overall = _base + int(percent * _share / 100)
+                            await _update_task(
+                                session, task,
+                                current_stage=f"Обновление комментариев ({src})...",
+                                progress_percent=min(overall, 45),
+                            )
+                            await session.commit()
 
-                    async def _progress(stage: str, percent: int, _base=base_progress, _share=current_share, _label=stage_label) -> None:
-                        overall = _base + int(percent * _share / 100)
+                        try:
+                            await bg_parser.update_comments_for_topic(tid, days=days, callback=_progress)
+                        except Exception as e:
+                            logger.warning("Comment update failed for topic %d: %s", tid, e)
+                    
+                    await session.commit()
+                    
+                else:
+                    # SLOW PATH: Full parsing (no pre-parsed data)
+                    parse_share = 50.0 / max(num_sources, 1)
+
+                    for idx, src in enumerate(source_list):
+                        tid = topic_ids_by_source[src]
+                        base_progress = int(idx * parse_share)
+
+                        if src == "pikabu":
+                            parser = ParserService(session)
+                            stage_label = "Загрузка постов с Pikabu..."
+                        elif src == "habr":
+                            parser = HabrParserService(session)
+                            stage_label = "Загрузка статей с Habr..."
+                        elif src == "vcru":
+                            parser = VcruParserService(session)
+                            stage_label = "Загрузка статей с VC.ru..."
+                        else:
+                            continue
+
                         await _update_task(
                             session, task,
-                            current_stage=f"{_label} {percent}%",
-                            progress_percent=min(overall, 50),
+                            status="parsing",
+                            current_stage=stage_label,
+                            progress_percent=base_progress,
                         )
                         await session.commit()
 
-                    await parser.parse_topic(tid, callback=_progress, days=days)
+                        current_share = parse_share
+
+                        async def _progress(stage: str, percent: int, _base=base_progress, _share=current_share, _label=stage_label) -> None:
+                            overall = _base + int(percent * _share / 100)
+                            await _update_task(
+                                session, task,
+                                current_stage=f"{_label} {percent}%",
+                                progress_percent=min(overall, 50),
+                            )
+                            await session.commit()
+
+                        await parser.parse_topic(tid, callback=_progress, days=days)
 
                 # Phase 2: Chunking + Analysis (50% → 85%)
                 await _update_task(

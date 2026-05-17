@@ -209,7 +209,7 @@ onMounted(loadReport)
             <p class="rv-paywall-desc">Получите доступ ко всем нишам, JTBD-анализу, рекомендациям по запуску, рискам, позиционированию и поисковым запросам.</p>
             <button class="rv-btn rv-btn--pay" :disabled="paymentLoading" @click="onBuyReport">
               <template v-if="paymentLoading">Переход к оплате…</template>
-              <template v-else>Открыть полный отчёт — 5 ₽</template>
+              <template v-else>Открыть полный отчёт — 4 990 ₽</template>
             </button>
             <p class="rv-paywall-hint">Оплата через Робокассу · Карта, СБП, кошельки</p>
           </div>

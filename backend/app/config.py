@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Cache
     cache_ttl_hours: int = 24
 
+    # Concurrency
+    max_concurrent_analyses: int = 3  # How many analyses can run in parallel
+
     # Pikabu parser
     pikabu_proxy_url: str = ""  # РФ прокси для pikabu.ru, например "socks5://user:pass@host:port"
     pikabu_retry_delay_429: int = 60
@@ -55,6 +58,9 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_verify_service_sid: str = ""
     jwt_secret: str = "bizmap-jwt-secret-change-me"
+
+    # Cron jobs
+    cron_secret: str = "change-me-in-production"  # Secret token for cron endpoints
 
     # Gemini API
     gemini_max_retries: int = 3

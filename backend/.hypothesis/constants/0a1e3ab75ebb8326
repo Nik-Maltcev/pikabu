@@ -1,0 +1,4 @@
+# file: C:\Users\uzer\Downloads\MiroFish-main\PIKABU\backend\app\api\router.py
+# hypothesis_version: 6.150.2
+
+[0.16, 0.17, 0.25, 0.5, 100, 400, 404, 409, 500, '/analysis/start', '/api', '/export/mirofish', '/parse/start', '/posts/{topic_id}', '/reports/{topic_id}', '/topics', 'Habr topic not found', 'Report not found', 'Task not found', 'Topic not found', 'aggregating', 'all', 'body', 'both', 'chunk_analysis', 'comments', 'comments_count', 'completed', 'data', 'failed', 'habr', 'hot_topics', 'mode', 'model_dump', 'parse_only', 'parsing', 'pending', 'pikabu', 'pikabu,habr', 'pikabu,habr,vcru', 'posts', 'posts_count', 'project_id', 'published_at', 'rating', 'source', 'status', 'task_id', 'title', 'topic_id', 'topic_name', 'trending_discussions', 'url', 'user_problems', 'vcru', 'Анализ завершён!', 'Ошибка', 'Парсинг завершён', 'Парсинг...']

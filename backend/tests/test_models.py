@@ -18,7 +18,7 @@ from app.models.database import (
 
 
 def test_all_seven_tables_registered():
-    """All 7 tables from the design doc are present in metadata."""
+    """All tables from the design doc are present in metadata."""
     table_names = set(Base.metadata.tables.keys())
     expected = {
         "topics",
@@ -28,6 +28,9 @@ def test_all_seven_tables_registered():
         "partial_results",
         "reports",
         "parse_metadata",
+        "device_limits",
+        "users",
+        "payments",
     }
     assert expected == table_names
 
@@ -66,6 +69,7 @@ def test_analysis_task_columns():
         "id", "topic_id", "status", "progress_percent",
         "current_stage", "total_chunks", "processed_chunks",
         "error_message", "created_at", "updated_at", "analysis_mode",
+        "contact_type", "contact_value",
     }
 
 
@@ -84,7 +88,7 @@ def test_report_columns():
     assert col_names == {
         "id", "topic_id", "task_id",
         "hot_topics", "user_problems", "trending_discussions", "generated_at", "sources",
-        "analysis_mode", "niche_data",
+        "analysis_mode", "niche_data", "user_id",
     }
 
 

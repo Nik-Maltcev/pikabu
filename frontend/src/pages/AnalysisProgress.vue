@@ -19,6 +19,7 @@ const stageLabel = computed(() => {
   const s = status.value.current_stage
   if (s) return s
   const st = status.value.status
+  if (st === 'queued') return 'В очереди...'
   if (st === 'pending') return 'Ожидание запуска...'
   if (st === 'parsing') return 'Сбор данных...'
   if (st === 'chunk_analysis') return 'AI-анализ данных...'
@@ -33,6 +34,7 @@ const statusIcon = computed(() => {
   const st = status.value.status
   if (st === 'completed') return '✅'
   if (st === 'failed') return '❌'
+  if (st === 'queued') return '🕐'
   if (st === 'parsing') return '📡'
   if (st === 'chunk_analysis') return '🧠'
   if (st === 'aggregating') return '📊'

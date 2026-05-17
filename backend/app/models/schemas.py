@@ -125,12 +125,20 @@ class AnalysisStartRequest(BaseModel):
 
     The backend automatically finds duplicate category names across all
     platforms (Pikabu, Habr, VC.ru) and parses them all.
+    
+    Two modes:
+    1. Authenticated user (has token) - report linked to account
+    2. Guest (no token) - must provide contact_type + contact_value for notification
+       OR can choose to wait on page (wait_on_page=True)
     """
 
     topic_id: int
     days: int = 14  # 14 or 30 (30 is paid only)
     analysis_mode: str = "niche_search"  # "niche_search" or "topic_analysis"
     fingerprint: str = ""  # Browser fingerprint for rate limiting
+    contact_type: str = ""  # "email" or "telegram" - for notification when ready
+    contact_value: str = ""  # email address or telegram username
+    wait_on_page: bool = False  # If True, user will wait on page (no contact needed)
 
 
 class AnalysisStartResponse(BaseModel):
@@ -152,6 +160,8 @@ class AnalysisStatusResponse(BaseModel):
     error_message: str | None
     report_id: int | None
     analysis_mode: str = "topic_analysis"
+    contact_type: str | None = None
+    contact_value: str | None = None
 
 
 # --- Report models ---

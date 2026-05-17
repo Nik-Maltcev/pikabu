@@ -1,0 +1,4 @@
+# file: C:\Users\uzer\Downloads\MiroFish-main\PIKABU\backend\app\services\analyzer.py
+# hypothesis_version: 6.150.2
+
+[0.3, 300.0, 200, 429, 500, 1000, '"', ',', '0.0.0.0', ':', 'Authorization', 'Content-Type', 'LLM response %d: %s', '[', ']', '```', 'active_discussions', 'application/json', 'business_ideas', 'choices', 'chunk_index', 'content', 'gemini', 'glm', 'hot_topics', 'jtbd_analyses', 'key_pains', 'market_trends', 'max_tokens', 'message', 'messages', 'model', 'niche_search', 'role', 'temperature', 'topic_analysis', 'topics_found', 'trending_discussions', 'user', 'user_problems', '{', '}']

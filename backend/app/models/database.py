@@ -122,6 +122,13 @@ class AnalysisTask(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
+    # Contact info for notification
+    contact_type = Column(String(20), nullable=True)  # email or telegram
+    contact_value = Column(String(255), nullable=True)  # email address or telegram username
+    
+    # User who created the task (optional, for registered users)
+    user_id = Column(Integer, nullable=True)
+
     topic = relationship("Topic", back_populates="analysis_tasks")
     partial_results = relationship(
         "PartialResult", back_populates="task", cascade="all, delete-orphan"
@@ -224,18 +231,23 @@ class DeviceLimit(Base):
 
 
 class User(Base):
-    """User account for personal cabinet (phone auth via Twilio)."""
+    """User account for personal cabinet (email/password auth)."""
 
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    phone = Column(String(20), unique=True, nullable=False, index=True)
+    phone = Column(String(20), unique=True, nullable=True, index=True)  # Legacy, optional
+    email = Column(String(255), unique=True, nullable=True, index=True)
+    password_hash = Column(String(255), nullable=True)  # bcrypt hash
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (Index("idx_users_phone", "phone"),)
+    __table_args__ = (
+        Index("idx_users_phone", "phone"),
+        Index("idx_users_email", "email"),
+    )
 
 
 class Payment(Base):

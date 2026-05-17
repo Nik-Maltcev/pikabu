@@ -26,10 +26,26 @@ export async function startAnalysis(
   topicId: number,
   days: number = 30,
   fingerprint?: string,
+  contactType?: string,
+  contactValue?: string,
+  waitOnPage?: boolean,
+  authToken?: string,
 ): Promise<AnalysisStartResponse> {
-  const body: Record<string, unknown> = { topic_id: topicId, days }
+  const body: Record<string, unknown> = { 
+    topic_id: topicId, 
+    days,
+    contact_type: contactType || '',
+    contact_value: contactValue || '',
+    wait_on_page: waitOnPage || false,
+  }
   if (fingerprint) body.fingerprint = fingerprint
-  const { data } = await api.post<AnalysisStartResponse>('/analysis/start', body)
+  
+  const headers: Record<string, string> = {}
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+  
+  const { data } = await api.post<AnalysisStartResponse>('/analysis/start', body, { headers })
   return data
 }
 
@@ -91,6 +107,36 @@ export async function createPaidAnalysis(topicId: number, days: number, fingerpr
     topic_id: topicId,
     days,
     fingerprint,
+  })
+  return data
+}
+
+// --- Auth API ---
+
+export interface AuthResponse {
+  success: boolean
+  token: string
+  user: { id: number; email: string }
+}
+
+export interface AuthCheckResponse {
+  authenticated: boolean
+  user?: { id: number; email: string }
+}
+
+export async function register(email: string, password: string): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/register', { email, password })
+  return data
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/login', { email, password })
+  return data
+}
+
+export async function checkAuth(token: string): Promise<AuthCheckResponse> {
+  const { data } = await api.get<AuthCheckResponse>('/auth/check', {
+    headers: { Authorization: `Bearer ${token}` },
   })
   return data
 }
