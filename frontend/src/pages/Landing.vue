@@ -25,28 +25,86 @@ function goToApp() {
 
     <main class="flex-grow pt-24 pb-16">
       <!-- Hero -->
-      <section class="max-w-7xl mx-auto px-6 pt-12 pb-24 text-center">
-        <h1 class="text-5xl font-bold tracking-tight leading-tight mb-6 max-w-4xl mx-auto">
-          Найдите прибыльную нишу для вашего бизнеса за 5 минут с помощью ИИ
-        </h1>
-        <p class="text-base text-[#45464d] max-w-2xl mx-auto mb-10 leading-relaxed">
-          Мощный алгоритм анализирует тысячи трендов, поисковых запросов и данных конкурентов, чтобы выдать вам готовый план действий.
-        </p>
-        <button
-          class="bg-[#57fae9] text-[#007168] text-xl font-semibold px-8 py-4 rounded-lg hover:opacity-90 transition-opacity shadow-sm"
-          @click="goToApp"
-        >
-          Начать поиск
-        </button>
+      <section class="max-w-7xl mx-auto px-6 pt-12 pb-24">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <!-- Left: Text -->
+          <div class="text-left">
+            <div class="inline-flex items-center gap-2 bg-[#006a62]/10 text-[#006a62] px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <span class="material-symbols-outlined text-lg">verified</span>
+              Аналитика на основе реальных данных
+            </div>
+            <h1 class="text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-6">
+              Найдите прибыльную нишу для бизнеса за 5 минут
+            </h1>
+            <p class="text-lg text-[#45464d] mb-8 leading-relaxed">
+              ИИ-платформа анализирует тысячи обсуждений на Pikabu, Habr и VC.ru, выявляет боли аудитории и генерирует готовые бизнес-идеи с планом запуска.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 mb-8">
+              <button
+                class="bg-[#006a62] text-white text-lg font-semibold px-8 py-4 rounded-lg hover:bg-[#005a54] transition-colors shadow-lg"
+                @click="goToApp"
+              >
+                Начать анализ бесплатно
+              </button>
+              <a href="#partners" class="border-2 border-[#006a62] text-[#006a62] text-lg font-semibold px-8 py-4 rounded-lg hover:bg-[#006a62]/5 transition-colors text-center">
+                Для партнёров
+              </a>
+            </div>
+            <!-- Trust badges -->
+            <div class="flex flex-wrap gap-6 text-sm text-[#45464d]">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62]">shield</span>
+                Безопасная оплата
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62]">schedule</span>
+                Результат за 5-10 мин
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62]">support_agent</span>
+                Поддержка 24/7
+              </div>
+            </div>
+          </div>
+          <!-- Right: Dashboard image -->
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden border border-[#c6c6cd] shadow-2xl">
+              <img
+                alt="Dashboard Preview"
+                class="w-full h-auto object-cover"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7epAI-l4-vnIB7hMmU-fwxbAgEB-8y89OIzjzNxaLsX_AtSRf37-yGwCnbKuNQ-kH3ZO_VEotjITvFFy1p9-Y2sD7sZpXJMtXivjla6D5GuHpAFA92XgvuoMeGM8O_uCfuslBud0A9cvDhkv8l7_-7a1QkaQCbd-An8BJmqPc4CSXWO0zR_MUjgBzVxWcVXBU-H6Nm0AkH8F0bgMn-i9OodTHl_igUp3FN52Mmc9iVuv3hxbwRltG05KmqegaQH1PG8rlzPv2m7Y"
+              />
+            </div>
+            <!-- Floating stats card -->
+            <div class="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-4 border border-[#c6c6cd]">
+              <div class="text-2xl font-bold text-[#006a62]">50 000+</div>
+              <div class="text-sm text-[#45464d]">постов проанализировано</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <!-- Dashboard image -->
-        <div class="mt-16 max-w-5xl mx-auto h-96 rounded-xl overflow-hidden border border-[#c6c6cd] relative">
-          <img
-            alt="Dashboard Preview"
-            class="w-full h-full object-cover"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7epAI-l4-vnIB7hMmU-fwxbAgEB-8y89OIzjzNxaLsX_AtSRf37-yGwCnbKuNQ-kH3ZO_VEotjITvFFy1p9-Y2sD7sZpXJMtXivjla6D5GuHpAFA92XgvuoMeGM8O_uCfuslBud0A9cvDhkv8l7_-7a1QkaQCbd-An8BJmqPc4CSXWO0zR_MUjgBzVxWcVXBU-H6Nm0AkH8F0bgMn-i9OodTHl_igUp3FN52Mmc9iVuv3hxbwRltG05KmqegaQH1PG8rlzPv2m7Y"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent"></div>
+      <!-- Stats -->
+      <section class="bg-[#006a62] py-12">
+        <div class="max-w-7xl mx-auto px-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
+            <div>
+              <div class="text-4xl font-bold mb-2">3</div>
+              <div class="text-sm opacity-80">платформы для анализа</div>
+            </div>
+            <div>
+              <div class="text-4xl font-bold mb-2">100+</div>
+              <div class="text-sm opacity-80">категорий бизнеса</div>
+            </div>
+            <div>
+              <div class="text-4xl font-bold mb-2">5 мин</div>
+              <div class="text-sm opacity-80">среднее время анализа</div>
+            </div>
+            <div>
+              <div class="text-4xl font-bold mb-2">24/7</div>
+              <div class="text-sm opacity-80">доступность сервиса</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -121,6 +179,154 @@ function goToApp() {
             <span class="material-symbols-outlined text-3xl text-[#006a62]">update</span>
             <h3 class="text-base font-semibold">Свежие тренды</h3>
           </div>
+        </div>
+      </section>
+
+      <!-- For Partners (Banks) -->
+      <section id="partners" class="bg-gradient-to-br from-[#006a62] to-[#004d47] py-24">
+        <div class="max-w-7xl mx-auto px-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="text-white">
+              <div class="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <span class="material-symbols-outlined text-lg">handshake</span>
+                Партнёрская программа
+              </div>
+              <h2 class="text-3xl lg:text-4xl font-bold mb-6">Для банков и финансовых организаций</h2>
+              <p class="text-lg opacity-90 mb-8 leading-relaxed">
+                Предлагаем интеграцию BizMap в ваши продукты для предпринимателей. 
+                Помогите клиентам найти прибыльную нишу — повысьте конверсию в РКО и кредитные продукты.
+              </p>
+              <ul class="space-y-4 mb-8">
+                <li class="flex items-start gap-3">
+                  <span class="material-symbols-outlined text-[#57fae9] mt-0.5">check_circle</span>
+                  <span>White-label решение под ваш бренд</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="material-symbols-outlined text-[#57fae9] mt-0.5">check_circle</span>
+                  <span>API-интеграция в личный кабинет клиента</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="material-symbols-outlined text-[#57fae9] mt-0.5">check_circle</span>
+                  <span>Аналитика по сегментам и регионам</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="material-symbols-outlined text-[#57fae9] mt-0.5">check_circle</span>
+                  <span>Повышение LTV клиентов на РКО</span>
+                </li>
+              </ul>
+              <a href="mailto:nikmaltcev@vk.com?subject=Партнёрство BizMap" class="inline-flex items-center gap-2 bg-white text-[#006a62] font-semibold px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors">
+                <span class="material-symbols-outlined">mail</span>
+                Обсудить партнёрство
+              </a>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+              <h3 class="text-white text-xl font-semibold mb-6">Преимущества для банка</h3>
+              <div class="space-y-6">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 bg-[#57fae9]/20 rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[#57fae9]">trending_up</span>
+                  </div>
+                  <div>
+                    <div class="text-white font-semibold mb-1">+25% к конверсии в РКО</div>
+                    <div class="text-white/70 text-sm">Клиенты с готовой бизнес-идеей охотнее открывают счёт</div>
+                  </div>
+                </div>
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 bg-[#57fae9]/20 rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[#57fae9]">loyalty</span>
+                  </div>
+                  <div>
+                    <div class="text-white font-semibold mb-1">Повышение лояльности</div>
+                    <div class="text-white/70 text-sm">Дополнительная ценность для начинающих предпринимателей</div>
+                  </div>
+                </div>
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 bg-[#57fae9]/20 rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[#57fae9]">analytics</span>
+                  </div>
+                  <div>
+                    <div class="text-white font-semibold mb-1">Данные о клиентах</div>
+                    <div class="text-white/70 text-sm">Понимание интересов и планов ваших клиентов</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Use Cases -->
+      <section class="max-w-7xl mx-auto px-6 py-24">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl font-semibold tracking-tight mb-4">Кому подходит BizMap</h2>
+          <p class="text-[#45464d] max-w-2xl mx-auto">Наш сервис помогает разным категориям пользователей находить и валидировать бизнес-идеи</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="bg-white p-8 border border-[#c6c6cd] rounded-xl">
+            <div class="w-14 h-14 bg-[#006a62]/10 rounded-xl flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-3xl text-[#006a62]">rocket_launch</span>
+            </div>
+            <h3 class="text-xl font-semibold mb-3">Начинающие предприниматели</h3>
+            <p class="text-[#45464d] mb-4">Ищете первую бизнес-идею? Получите список проверенных ниш с реальным спросом и низким порогом входа.</p>
+            <ul class="text-sm text-[#45464d] space-y-2">
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Идеи с минимальными вложениями
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Готовый план запуска MVP
+              </li>
+            </ul>
+          </div>
+          <div class="bg-white p-8 border border-[#c6c6cd] rounded-xl">
+            <div class="w-14 h-14 bg-[#006a62]/10 rounded-xl flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-3xl text-[#006a62]">store</span>
+            </div>
+            <h3 class="text-xl font-semibold mb-3">Действующий бизнес</h3>
+            <p class="text-[#45464d] mb-4">Хотите расширить продуктовую линейку или выйти в смежную нишу? Найдите точки роста на основе данных.</p>
+            <ul class="text-sm text-[#45464d] space-y-2">
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Анализ смежных рынков
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Выявление новых потребностей
+              </li>
+            </ul>
+          </div>
+          <div class="bg-white p-8 border border-[#c6c6cd] rounded-xl">
+            <div class="w-14 h-14 bg-[#006a62]/10 rounded-xl flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-3xl text-[#006a62]">account_balance</span>
+            </div>
+            <h3 class="text-xl font-semibold mb-3">Инвесторы и фонды</h3>
+            <p class="text-[#45464d] mb-4">Оценивайте рыночный потенциал стартапов и находите перспективные направления для инвестиций.</p>
+            <ul class="text-sm text-[#45464d] space-y-2">
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Валидация бизнес-моделей
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#006a62] text-lg">check</span>
+                Анализ трендов рынка
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section class="bg-[#f6f3f5] py-24">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+          <h2 class="text-3xl font-bold mb-4">Готовы найти свою нишу?</h2>
+          <p class="text-lg text-[#45464d] mb-8">Первые 3 анализа бесплатно. Без регистрации и привязки карты.</p>
+          <button
+            class="bg-[#006a62] text-white text-lg font-semibold px-10 py-4 rounded-lg hover:bg-[#005a54] transition-colors shadow-lg"
+            @click="goToApp"
+          >
+            Начать бесплатно
+          </button>
         </div>
       </section>
     </main>
