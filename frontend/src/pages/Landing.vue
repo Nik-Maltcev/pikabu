@@ -34,10 +34,10 @@ function goToApp() {
               Аналитика на основе реальных данных
             </div>
             <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
-              Найдите прибыльную нишу для бизнеса за 5 минут
+              Анализируем 50 000+ постов и находим прибыльные ниши за 5 минут
             </h1>
             <p class="text-base md:text-lg text-[#45464d] mb-5 md:mb-8 leading-relaxed">
-              ИИ-платформа анализирует тысячи обсуждений на Pikabu, Habr и VC.ru, выявляет боли аудитории и генерирует готовые бизнес-идеи с планом запуска.
+              ИИ обрабатывает реальные обсуждения с 3 крупнейших русскоязычных площадок, выявляет боли аудитории и выдаёт готовые бизнес-идеи с MVP-планом.
             </p>
             <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mb-5 md:mb-8">
               <button
