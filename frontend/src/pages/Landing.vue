@@ -82,24 +82,24 @@ function goToApp() {
       </section>
 
       <!-- Stats -->
-      <section class="bg-[#006a62] py-8 md:py-12 mt-8 lg:mt-0">
-        <div class="max-w-7xl mx-auto px-6">
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-center text-white">
+      <section class="bg-[#006a62] py-6 md:py-12 mt-8 lg:mt-0">
+        <div class="max-w-7xl mx-auto px-4 md:px-6">
+          <div class="grid grid-cols-4 gap-2 md:gap-8 text-center text-white">
             <div>
-              <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">3</div>
-              <div class="text-sm md:text-sm opacity-80">платформы</div>
+              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">3</div>
+              <div class="text-[10px] md:text-sm opacity-80 leading-tight">платформы</div>
             </div>
             <div>
-              <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">100+</div>
-              <div class="text-sm md:text-sm opacity-80">категорий</div>
+              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">100+</div>
+              <div class="text-[10px] md:text-sm opacity-80 leading-tight">категорий</div>
             </div>
             <div>
-              <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">5 мин</div>
-              <div class="text-sm md:text-sm opacity-80">анализ</div>
+              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">5 мин</div>
+              <div class="text-[10px] md:text-sm opacity-80 leading-tight">анализ</div>
             </div>
             <div>
-              <div class="text-2xl md:text-4xl font-bold mb-1 md:mb-2">24/7</div>
-              <div class="text-sm md:text-sm opacity-80">доступность</div>
+              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">24/7</div>
+              <div class="text-[10px] md:text-sm opacity-80 leading-tight">доступность</div>
             </div>
           </div>
         </div>
