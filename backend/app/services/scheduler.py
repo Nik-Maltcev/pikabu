@@ -51,11 +51,11 @@ async def _scheduler_loop():
             
             if _last_parse_time is None:
                 # Never parsed, check DB
-                from app.database import async_session_factory
+                from app.database import async_session
                 from app.models.database import ParseMetadata
                 from sqlalchemy import select, func
                 
-                async with async_session_factory() as session:
+                async with async_session() as session:
                     result = await session.execute(
                         select(func.max(ParseMetadata.last_parsed_at))
                     )

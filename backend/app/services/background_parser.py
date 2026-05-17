@@ -12,7 +12,7 @@ from typing import Callable, Awaitable
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import async_session_factory
+from app.database import async_session
 from app.models.database import Topic, Post, Comment, ParseMetadata
 from app.services.parser import ParserService
 from app.services.habr_parser import HabrParserService
@@ -341,7 +341,7 @@ class BackgroundParser:
 
 async def run_full_parse(days: int = 30) -> dict:
     """Run full parse of all categories. Called by cron endpoint."""
-    async with async_session_factory() as session:
+    async with async_session() as session:
         parser = BackgroundParser(session)
         stats = await parser.parse_all_categories(days=days)
         await session.commit()
@@ -350,7 +350,7 @@ async def run_full_parse(days: int = 30) -> dict:
 
 async def run_cleanup(days: int = 35) -> dict:
     """Run cleanup of old posts. Called by cron endpoint."""
-    async with async_session_factory() as session:
+    async with async_session() as session:
         parser = BackgroundParser(session)
         stats = await parser.cleanup_old_posts(days=days)
         return stats
