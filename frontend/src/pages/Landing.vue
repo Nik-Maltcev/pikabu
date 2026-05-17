@@ -67,7 +67,7 @@ function goToApp() {
             </div>
           </div>
           <!-- Right: Dashboard image -->
-          <div class="relative mt-8 lg:mt-0">
+          <div class="relative mt-6 lg:mt-0 hidden md:block">
             <div class="rounded-xl overflow-hidden border border-[#c6c6cd] shadow-2xl">
               <img
                 alt="Dashboard Preview"
@@ -75,7 +75,7 @@ function goToApp() {
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7epAI-l4-vnIB7hMmU-fwxbAgEB-8y89OIzjzNxaLsX_AtSRf37-yGwCnbKuNQ-kH3ZO_VEotjITvFFy1p9-Y2sD7sZpXJMtXivjla6D5GuHpAFA92XgvuoMeGM8O_uCfuslBud0A9cvDhkv8l7_-7a1QkaQCbd-An8BJmqPc4CSXWO0zR_MUjgBzVxWcVXBU-H6Nm0AkH8F0bgMn-i9OodTHl_igUp3FN52Mmc9iVuv3hxbwRltG05KmqegaQH1PG8rlzPv2m7Y"
               />
             </div>
-            <!-- Floating stats card - hidden on mobile, visible on lg+ -->
+            <!-- Floating stats card - visible on lg+ -->
             <div class="hidden lg:block absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-4 border border-[#c6c6cd]">
               <div class="text-2xl font-bold text-[#006a62]">50 000+</div>
               <div class="text-sm text-[#45464d]">постов проанализировано</div>
