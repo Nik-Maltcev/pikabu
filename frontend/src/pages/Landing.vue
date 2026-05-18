@@ -84,17 +84,13 @@ function goToApp() {
       <!-- Stats -->
       <section class="bg-[#006a62] py-[16px] md:py-12 mt-[20px] lg:mt-0">
         <div class="max-w-7xl mx-auto px-[12px] md:px-6">
-          <div class="grid grid-cols-4 gap-2 md:gap-8 text-center text-white">
-            <div>
-              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">3</div>
-              <div class="text-[13px] md:text-sm opacity-80 leading-tight">платформы</div>
-            </div>
+          <div class="grid grid-cols-3 gap-2 md:gap-8 text-center text-white">
             <div>
               <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">100+</div>
               <div class="text-[13px] md:text-sm opacity-80 leading-tight">категорий</div>
             </div>
             <div>
-              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">5 мин</div>
+              <div class="text-[22px] md:text-4xl font-bold whitespace-nowrap">~5 минут</div>
               <div class="text-[13px] md:text-sm opacity-80 leading-tight">анализ</div>
             </div>
             <div>
