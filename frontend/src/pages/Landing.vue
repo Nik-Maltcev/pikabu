@@ -86,20 +86,20 @@ function goToApp() {
         <div class="max-w-7xl mx-auto px-4 md:px-6">
           <div class="grid grid-cols-4 gap-2 md:gap-8 text-center text-white">
             <div>
-              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">3</div>
-              <div class="text-[10px] md:text-sm opacity-80 leading-tight">платформы</div>
+              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">3</div>
+              <div class="text-[13px] md:text-sm opacity-80 leading-tight">платформы</div>
             </div>
             <div>
-              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">100+</div>
-              <div class="text-[10px] md:text-sm opacity-80 leading-tight">категорий</div>
+              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">100+</div>
+              <div class="text-[13px] md:text-sm opacity-80 leading-tight">категорий</div>
             </div>
             <div>
-              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">5 мин</div>
-              <div class="text-[10px] md:text-sm opacity-80 leading-tight">анализ</div>
+              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">5 мин</div>
+              <div class="text-[13px] md:text-sm opacity-80 leading-tight">анализ</div>
             </div>
             <div>
-              <div class="text-xl md:text-4xl font-bold whitespace-nowrap">24/7</div>
-              <div class="text-[10px] md:text-sm opacity-80 leading-tight">доступность</div>
+              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">24/7</div>
+              <div class="text-[13px] md:text-sm opacity-80 leading-tight">доступность</div>
             </div>
           </div>
         </div>
