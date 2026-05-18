@@ -23,23 +23,23 @@ function goToApp() {
       </div>
     </nav>
 
-    <main class="flex-grow pt-20 md:pt-24 pb-16">
+    <main class="flex-grow pt-[50px] md:pt-24 pb-[20px] md:pb-16">
       <!-- Hero -->
-      <section class="max-w-7xl mx-auto px-4 md:px-6 pt-8 md:pt-12 pb-12 md:pb-24">
+      <section class="max-w-7xl mx-auto px-4 md:px-6 pt-[10px] md:pt-12 pb-[10px] md:pb-24">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <!-- Left: Text -->
           <div class="text-left">
-            <div class="inline-flex items-center gap-2 bg-[#006a62]/10 text-[#006a62] px-3 py-1.5 rounded-full text-sm md:text-sm font-medium mb-4 md:mb-6">
+            <div class="inline-flex items-center gap-2 bg-[#006a62]/10 text-[#006a62] px-3 py-1.5 rounded-full text-sm md:text-sm font-medium mb-[10px] md:mb-6">
               <span class="material-symbols-outlined text-base md:text-lg">verified</span>
               Аналитика на основе реальных данных
             </div>
-            <h1 class="text-[62px] md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-3 md:mb-6">
+            <h1 class="text-[62px] md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight mb-[10px] md:mb-6">
               Анализируем 50 000+ постов и находим прибыльные ниши за 5 минут
             </h1>
-            <p class="text-base md:text-lg text-[#45464d] mb-5 md:mb-8 leading-relaxed">
+            <p class="text-base md:text-lg text-[#45464d] mb-[14px] md:mb-8 leading-relaxed">
               ИИ обрабатывает реальные обсуждения с 3 крупнейших русскоязычных площадок, выявляет боли аудитории и выдаёт готовые бизнес-идеи с MVP-планом.
             </p>
-            <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mb-5 md:mb-8">
+            <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mb-[10px] md:mb-8">
               <button
                 class="bg-[#006a62] text-white text-base md:text-lg font-semibold px-5 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg hover:bg-[#005a54] transition-colors shadow-lg"
                 @click="goToApp"
