@@ -82,8 +82,8 @@ function goToApp() {
       </section>
 
       <!-- Stats -->
-      <section class="bg-[#006a62] py-6 md:py-12 mt-8 lg:mt-0">
-        <div class="max-w-7xl mx-auto px-4 md:px-6">
+      <section class="bg-[#006a62] py-[16px] md:py-12 mt-[20px] lg:mt-0">
+        <div class="max-w-7xl mx-auto px-[12px] md:px-6">
           <div class="grid grid-cols-4 gap-2 md:gap-8 text-center text-white">
             <div>
               <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">3</div>
@@ -106,33 +106,33 @@ function goToApp() {
       </section>
 
       <!-- How it works -->
-      <section class="bg-[#f6f3f5] py-16 md:py-24">
+      <section class="bg-[#f6f3f5] py-[40px] md:py-24">
         <div class="max-w-7xl mx-auto px-4 md:px-6">
-          <h2 class="text-2xl md:text-3xl font-semibold tracking-tight text-center mb-12 md:mb-16">Как это работает</h2>
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-            <div class="bg-white p-6 md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
-              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
+          <h2 class="text-2xl md:text-3xl font-semibold tracking-tight text-center mb-[30px] md:mb-16">Как это работает</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-[16px] md:gap-8">
+            <div class="bg-white p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
+              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-[12px] md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">database</span>
               </div>
-              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">Сбор данных</h3>
+              <h3 class="text-[38px] md:text-xl font-semibold mb-[8px] md:mb-4">Сбор данных</h3>
               <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Собираем посты и комментарии с Pikabu, Habr и VC.ru по выбранной категории за 14-30 дней.
               </p>
             </div>
-            <div class="bg-white p-6 md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
-              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
+            <div class="bg-white p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
+              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-[12px] md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">psychology</span>
               </div>
-              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">ИИ-анализ</h3>
+              <h3 class="text-[38px] md:text-xl font-semibold mb-[8px] md:mb-4">ИИ-анализ</h3>
               <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Нейросеть анализирует боли аудитории, выявляет паттерны и генерирует бизнес-идеи.
               </p>
             </div>
-            <div class="bg-white p-6 md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
-              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-4 md:mb-6">
+            <div class="bg-white p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
+              <div class="w-14 h-14 md:w-16 md:h-16 bg-[#dae2fd] text-[#131b2e] rounded-full flex items-center justify-center mb-[12px] md:mb-6">
                 <span class="material-symbols-outlined text-2xl md:text-3xl icon-fill">description</span>
               </div>
-              <h3 class="text-[38px] md:text-xl font-semibold mb-3 md:mb-4">Готовый отчёт</h3>
+              <h3 class="text-[38px] md:text-xl font-semibold mb-[8px] md:mb-4">Готовый отчёт</h3>
               <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
                 Получаете структурированный отчёт с нишами, JTBD-анализом и планом запуска MVP.
               </p>
