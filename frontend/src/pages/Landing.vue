@@ -233,40 +233,37 @@ function goToApp() {
         </div>
       </section>
 
-      <!-- Benefits bento grid -->
-      <section class="max-w-7xl mx-auto px-6 py-24">
-        <h2 class="text-3xl font-semibold tracking-tight mb-12">Преимущества для старта</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 auto-rows-[240px]">
-          <!-- Large -->
-          <div class="lg:col-span-2 lg:row-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex flex-col justify-between">
+      <!-- Benefits -->
+      <section class="max-w-7xl mx-auto px-4 md:px-6 py-[40px] md:py-24">
+        <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-[20px] md:mb-12">Преимущества</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-[16px] md:gap-6">
+          <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
+            <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">speed</span>
             <div>
-              <span class="material-symbols-outlined text-4xl text-[#006a62] mb-4">speed</span>
-              <h3 class="text-xl font-semibold mb-2">Экономия времени</h3>
-              <p class="text-base text-[#45464d] leading-relaxed">
-                Вместо недель ручного ресерча вы получаете результат за минуты. Фокусируйтесь на продукте, а не на поиске данных.
-              </p>
-            </div>
-            <div class="mt-4 flex gap-2">
-              <span class="bg-[#eae7e9] text-[#45464d] px-3 py-1 rounded-full text-xs font-medium border border-[#c6c6cd]">Быстро</span>
-              <span class="bg-[#eae7e9] text-[#45464d] px-3 py-1 rounded-full text-xs font-medium border border-[#c6c6cd]">Точно</span>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Экономия времени</h3>
+              <p class="text-base text-[#45464d]">Вместо недель ручного ресерча — результат за минуты.</p>
             </div>
           </div>
-          <!-- Medium -->
-          <div class="lg:col-span-2 bg-[#fcf8fa] p-8 border border-[#c6c6cd] rounded-xl flex items-center gap-6">
-            <span class="material-symbols-outlined text-4xl text-[#006a62] shrink-0">trending_up</span>
+          <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
+            <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">trending_up</span>
             <div>
-              <h3 class="text-xl font-semibold mb-2">Снижение рисков</h3>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Снижение рисков</h3>
               <p class="text-base text-[#45464d]">Объективная оценка на основе данных, а не интуиции.</p>
             </div>
           </div>
-          <!-- Small -->
-          <div class="bg-[#fcf8fa] p-6 border border-[#c6c6cd] rounded-xl flex flex-col justify-between">
-            <span class="material-symbols-outlined text-3xl text-[#006a62]">insights</span>
-            <h3 class="text-base font-semibold">Глубокая аналитика</h3>
+          <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
+            <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">insights</span>
+            <div>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Глубокая аналитика</h3>
+              <p class="text-base text-[#45464d]">JTBD-анализ, боли аудитории, тренды и MVP-план.</p>
+            </div>
           </div>
-          <div class="bg-[#fcf8fa] p-6 border border-[#c6c6cd] rounded-xl flex flex-col justify-between">
-            <span class="material-symbols-outlined text-3xl text-[#006a62]">update</span>
-            <h3 class="text-base font-semibold">Свежие тренды</h3>
+          <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
+            <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">update</span>
+            <div>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Свежие данные</h3>
+              <p class="text-base text-[#45464d]">Обновляем базу каждые 3 дня — всегда актуальная картина.</p>
+            </div>
           </div>
         </div>
       </section>
