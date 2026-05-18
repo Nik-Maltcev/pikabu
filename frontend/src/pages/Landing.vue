@@ -37,7 +37,7 @@ function goToApp() {
               Анализируем 50 000+ постов и находим прибыльные ниши за 5 минут
             </h1>
             <p class="text-base md:text-lg text-[#45464d] mb-[14px] md:mb-8 leading-relaxed">
-              ИИ обрабатывает реальные обсуждения с 3 крупнейших русскоязычных площадок, выявляет боли аудитории и выдаёт готовые бизнес-идеи с MVP-планом.
+              ИИ обрабатывает реальные обсуждения с крупнейших русскоязычных площадок, выявляет боли аудитории и выдаёт готовые бизнес-идеи с MVP-планом.
             </p>
             <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mb-[10px] md:mb-8">
               <button
@@ -86,7 +86,7 @@ function goToApp() {
         <div class="max-w-7xl mx-auto px-[12px] md:px-6">
           <div class="grid grid-cols-3 gap-[12px] md:gap-8 text-center text-white">
             <div>
-              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">100+</div>
+              <div class="text-[28px] md:text-4xl font-bold whitespace-nowrap">10+</div>
               <div class="text-[13px] md:text-sm opacity-80 leading-tight">категорий</div>
             </div>
             <div>
@@ -112,7 +112,7 @@ function goToApp() {
               </div>
               <h3 class="text-[38px] md:text-xl font-semibold mb-[8px] md:mb-4">Сбор данных</h3>
               <p class="text-[35px] md:text-base text-[#45464d] leading-relaxed">
-                Собираем посты и комментарии с Pikabu, Habr и VC.ru по выбранной категории за 14-30 дней.
+                Собираем посты и комментарии с популярных русскоязычных площадок по выбранной категории за 14-30 дней.
               </p>
             </div>
             <div class="bg-white p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex flex-col items-center text-center">
@@ -354,16 +354,16 @@ function goToApp() {
           <!-- Free -->
           <div class="bg-white border border-[#c6c6cd] rounded-xl p-6 md:p-8">
             <div class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full w-fit mb-4">БЕСПЛАТНО</div>
-            <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Превью отчёта</h3>
+            <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Демо-отчёт</h3>
             <p class="text-3xl font-bold text-[#1b1b1d] mb-4">0 ₽</p>
             <ul class="text-base text-[#44474d] space-y-2 mb-6">
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-green-600 text-lg mt-0.5">check</span>
-                3–5 лучших ниш по категории
+                1 бесплатный демо-анализ
               </li>
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-green-600 text-lg mt-0.5">check</span>
-                Краткое описание потенциала
+                Покажем 3–5 ниш с кратким описанием
               </li>
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-green-600 text-lg mt-0.5">check</span>
@@ -371,7 +371,7 @@ function goToApp() {
               </li>
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-[#45464d] text-lg mt-0.5">close</span>
-                <span class="text-[#76777d]">3 анализа на устройство</span>
+                <span class="text-[#76777d]">Без детального разбора и MVP-плана</span>
               </li>
             </ul>
             <button
@@ -430,7 +430,7 @@ function goToApp() {
                 <span class="material-symbols-outlined text-[#006a62] transition-transform group-open:rotate-180">expand_more</span>
               </summary>
               <div class="px-4 md:px-5 pb-4 md:pb-5 text-base text-[#45464d] leading-relaxed">
-                Мы собираем публичные посты и комментарии с трёх русскоязычных площадок: Pikabu, Habr и VC.ru. Это реальные обсуждения реальных людей — не опросы и не фокус-группы.
+                Мы анализируем публичные обсуждения на популярных русскоязычных форумах и площадках. Это реальные мнения реальных людей — не опросы и не фокус-группы.
               </div>
             </details>
             <details class="bg-white border border-[#c6c6cd] rounded-xl group">
