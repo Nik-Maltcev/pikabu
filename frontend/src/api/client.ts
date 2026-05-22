@@ -89,8 +89,10 @@ export interface PaymentCheckResponse {
   access_token?: string
 }
 
-export async function createPayment(reportId: number): Promise<PaymentCreateResponse> {
-  const { data } = await api.post<PaymentCreateResponse>('/payment/create', { report_id: reportId })
+export async function createPayment(reportId: number, promoCode?: string): Promise<PaymentCreateResponse> {
+  const body: Record<string, unknown> = { report_id: reportId }
+  if (promoCode) body.promo_code = promoCode
+  const { data } = await api.post<PaymentCreateResponse>('/payment/create', body)
   return data
 }
 
@@ -102,12 +104,22 @@ export async function checkPayment(reportId: number, token?: string, topicId?: n
   return data
 }
 
-export async function createPaidAnalysis(topicId: number, days: number, fingerprint: string): Promise<PaymentCreateResponse> {
-  const { data } = await api.post<PaymentCreateResponse>('/payment/create-for-analysis', {
-    topic_id: topicId,
-    days,
-    fingerprint,
-  })
+export async function createPaidAnalysis(topicId: number, days: number, fingerprint: string, promoCode?: string): Promise<PaymentCreateResponse> {
+  const body: Record<string, unknown> = { topic_id: topicId, days, fingerprint }
+  if (promoCode) body.promo_code = promoCode
+  const { data } = await api.post<PaymentCreateResponse>('/payment/create-for-analysis', body)
+  return data
+}
+
+export interface PromoCheckResponse {
+  valid: boolean
+  price?: number
+  discount_percent?: number
+  original_price?: number
+}
+
+export async function checkPromoCode(code: string): Promise<PromoCheckResponse> {
+  const { data } = await api.post<PromoCheckResponse>('/payment/promo/check', { code })
   return data
 }
 

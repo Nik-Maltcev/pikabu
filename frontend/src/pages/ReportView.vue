@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getReport, createPayment, checkPayment } from '../api/client'
+import { getReport, createPayment, checkPayment, checkPromoCode } from '../api/client'
 import type { Report } from '../types/api'
 
 const route = useRoute()
@@ -15,6 +15,11 @@ const loading = ref(true)
 const error = ref('')
 const isPaid = ref(false)
 const paymentLoading = ref(false)
+const promoCode = ref('')
+const promoApplied = ref(false)
+const promoPrice = ref(0)
+const promoDiscount = ref(0)
+const promoError = ref('')
 
 const FREE_PAINS = 3
 const FREE_IDEAS = 2
@@ -49,10 +54,29 @@ async function loadReport() {
   }
 }
 
+async function onApplyPromo() {
+  promoError.value = ''
+  if (!promoCode.value.trim()) return
+  try {
+    const res = await checkPromoCode(promoCode.value.trim())
+    if (res.valid) {
+      promoApplied.value = true
+      promoPrice.value = res.price!
+      promoDiscount.value = res.discount_percent!
+    } else {
+      promoError.value = 'Промокод не найден'
+      promoApplied.value = false
+    }
+  } catch {
+    promoError.value = 'Ошибка проверки промокода'
+  }
+}
+
 async function onBuyReport() {
   paymentLoading.value = true
   try {
-    const result = await createPayment(reportId)
+    const code = promoApplied.value ? promoCode.value.trim() : undefined
+    const result = await createPayment(reportId, code)
     // Redirect to Robokassa
     window.location.href = result.payment_url
   } catch (e: any) {
@@ -207,8 +231,20 @@ onMounted(loadReport)
           <div class="rv-paywall-inner">
             <h2 class="rv-paywall-title">🔓 Откройте полный отчёт</h2>
             <p class="rv-paywall-desc">Получите доступ ко всем нишам, JTBD-анализу, рекомендациям по запуску, рискам, позиционированию и поисковым запросам.</p>
+            
+            <!-- Promo code -->
+            <div class="rv-promo">
+              <div class="rv-promo-row">
+                <input v-model="promoCode" type="text" placeholder="Промокод" class="rv-promo-input" @keyup.enter="onApplyPromo" />
+                <button class="rv-promo-btn" @click="onApplyPromo">Применить</button>
+              </div>
+              <p v-if="promoApplied" class="rv-promo-success">✓ Скидка {{ promoDiscount }}% применена</p>
+              <p v-if="promoError" class="rv-promo-error">{{ promoError }}</p>
+            </div>
+
             <button class="rv-btn rv-btn--pay" :disabled="paymentLoading" @click="onBuyReport">
               <template v-if="paymentLoading">Переход к оплате…</template>
+              <template v-else-if="promoApplied">Открыть полный отчёт — {{ promoPrice.toLocaleString() }} ₽ <span style="text-decoration:line-through;opacity:0.6;margin-left:8px">4 990 ₽</span></template>
               <template v-else>Открыть полный отчёт — 4 990 ₽</template>
             </button>
             <p class="rv-paywall-hint">Оплата через Робокассу · Карта, СБП, кошельки</p>
@@ -317,6 +353,15 @@ onMounted(loadReport)
 .rv-btn--pay:hover:not(:disabled) { opacity: 0.9; }
 .rv-btn--pay:disabled { opacity: 0.5; cursor: not-allowed; }
 .rv-paywall-hint { font-size: 12px; color: #6b7280; margin: 12px 0 0; }
+
+.rv-promo { margin-bottom: 16px; }
+.rv-promo-row { display: flex; gap: 8px; justify-content: center; max-width: 320px; margin: 0 auto; }
+.rv-promo-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; }
+.rv-promo-input:focus { border-color: var(--accent); }
+.rv-promo-btn { padding: 10px 16px; border: none; border-radius: 8px; background: var(--accent-bg); color: var(--accent); font-size: 14px; font-weight: 500; cursor: pointer; }
+.rv-promo-btn:hover { opacity: 0.8; }
+.rv-promo-success { color: #16a34a; font-size: 13px; margin: 8px 0 0; }
+.rv-promo-error { color: #b91c1c; font-size: 13px; margin: 8px 0 0; }
 
 .rv-btn { display: inline-flex; align-items: center; padding: 10px 20px; border: none; border-radius: 8px; background: var(--accent); color: #fff; font-size: 14px; cursor: pointer; }
 .rv-btn--secondary { background: transparent; color: var(--text-h); border: 1px solid var(--border); }

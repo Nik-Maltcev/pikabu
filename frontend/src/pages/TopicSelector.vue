@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTopics, startAnalysis, checkLimit, createPaidAnalysis, login, register, checkAuth } from '../api/client'
+import { getTopics, startAnalysis, checkLimit, createPaidAnalysis, checkPromoCode, login, register, checkAuth } from '../api/client'
 import { generateFingerprint } from '../utils/fingerprint'
 import type { Topic } from '../types/api'
 
@@ -221,12 +221,37 @@ const paymentLoading = ref(false)
 const waitingPayment = ref(false)
 let paymentPollTimer: ReturnType<typeof setInterval> | null = null
 
+const paidPromoCode = ref('')
+const paidPromoApplied = ref(false)
+const paidPromoPrice = ref(0)
+const paidPromoDiscount = ref(0)
+const paidPromoError = ref('')
+
+async function onApplyPaidPromo() {
+  paidPromoError.value = ''
+  if (!paidPromoCode.value.trim()) return
+  try {
+    const res = await checkPromoCode(paidPromoCode.value.trim())
+    if (res.valid) {
+      paidPromoApplied.value = true
+      paidPromoPrice.value = res.price!
+      paidPromoDiscount.value = res.discount_percent!
+    } else {
+      paidPromoError.value = 'Промокод не найден'
+      paidPromoApplied.value = false
+    }
+  } catch {
+    paidPromoError.value = 'Ошибка проверки'
+  }
+}
+
 async function onPaidStart() {
   if (!selectedTopic.value) return
   paymentLoading.value = true
   error.value = ''
   try {
-    const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value)
+    const code = paidPromoApplied.value ? paidPromoCode.value.trim() : undefined
+    const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value, code)
     // Open Robokassa in new window
     window.open(result.payment_url, '_blank')
     // Start polling payment status
@@ -425,13 +450,20 @@ onMounted(async () => {
       <!-- Limit -->
       <div v-else-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
         <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
-        <p class="mb-3">Оплатите 4 990 ₽ — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
+        <p class="mb-3">Оплатите — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
+        <!-- Promo code -->
+        <div class="flex gap-2 mb-3">
+          <input v-model="paidPromoCode" type="text" placeholder="Промокод" class="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white" @keyup.enter="onApplyPaidPromo" />
+          <button class="px-3 py-2 bg-amber-200 text-amber-900 rounded-lg text-sm font-medium" @click="onApplyPaidPromo">OK</button>
+        </div>
+        <p v-if="paidPromoApplied" class="text-green-700 text-xs mb-2">✓ Скидка {{ paidPromoDiscount }}% — цена {{ paidPromoPrice.toLocaleString() }} ₽</p>
+        <p v-if="paidPromoError" class="text-red-700 text-xs mb-2">{{ paidPromoError }}</p>
         <button
           class="bg-[#006a62] text-white text-sm font-medium px-6 py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
           :disabled="paymentLoading"
           @click="onPaidStart"
         >
-          {{ paymentLoading ? 'Переход к оплате...' : 'Оплатить и запустить анализ — 4 990 ₽' }}
+          {{ paymentLoading ? 'Переход к оплате...' : paidPromoApplied ? `Оплатить ${paidPromoPrice.toLocaleString()} ₽` : 'Оплатить и запустить анализ — 4 990 ₽' }}
         </button>
       </div>
       <div v-else-if="limitReached && !selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
