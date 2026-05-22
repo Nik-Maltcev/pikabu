@@ -4,16 +4,16 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const user = ref<{ id: number; phone: string } | null>(null)
+const user = ref<{ id: number; email: string } | null>(null)
 const reports = ref<any[]>([])
 const loading = ref(true)
 const error = ref('')
 
 // Auth state
 const showLogin = ref(false)
-const phone = ref('')
-const code = ref('')
-const step = ref<'phone' | 'code'>('phone')
+const isRegister = ref(false)
+const email = ref('')
+const password = ref('')
 const authLoading = ref(false)
 const authError = ref('')
 
@@ -62,45 +62,21 @@ async function loadProfile() {
   }
 }
 
-async function sendCode() {
+async function onSubmit() {
   authLoading.value = true
   authError.value = ''
   try {
-    let p = phone.value.trim()
-    if (!p.startsWith('+')) p = '+' + p
-    const res = await fetch(`${apiBase}/auth/send-code`, {
+    const endpoint = isRegister.value ? '/auth/register' : '/auth/login'
+    const res = await fetch(`${apiBase}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: p }),
+      body: JSON.stringify({ email: email.value.trim(), password: password.value }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.detail || 'Ошибка отправки')
-    step.value = 'code'
-  } catch (e: any) {
-    authError.value = e.message || 'Ошибка'
-  } finally {
-    authLoading.value = false
-  }
-}
-
-async function verifyCode() {
-  authLoading.value = true
-  authError.value = ''
-  try {
-    let p = phone.value.trim()
-    if (!p.startsWith('+')) p = '+' + p
-    const res = await fetch(`${apiBase}/auth/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: p, code: code.value.trim() }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.detail || 'Неверный код')
+    if (!res.ok) throw new Error(data.detail || 'Ошибка')
     setToken(data.token)
     user.value = data.user
     showLogin.value = false
-    step.value = 'phone'
-    code.value = ''
     await loadProfile()
   } catch (e: any) {
     authError.value = e.message || 'Ошибка'
@@ -127,7 +103,7 @@ onMounted(loadProfile)
     <nav class="acc-nav">
       <router-link to="/" class="acc-brand">BizMap</router-link>
       <div v-if="user" class="acc-user-info">
-        <span class="acc-phone">{{ user.phone }}</span>
+        <span class="acc-email">{{ user.email }}</span>
         <button class="acc-logout" @click="logout">Выйти</button>
       </div>
     </nav>
@@ -137,40 +113,33 @@ onMounted(loadProfile)
       <div class="acc-spinner"></div>
     </div>
 
-    <!-- Login modal -->
+    <!-- Login/Register -->
     <div v-else-if="showLogin" class="acc-center">
       <div class="acc-login-card">
-        <h1 class="acc-login-title">Вход в личный кабинет</h1>
-        <p class="acc-login-desc">Введите номер телефона для получения SMS-кода</p>
+        <h1 class="acc-login-title">{{ isRegister ? 'Регистрация' : 'Вход' }}</h1>
+        <p class="acc-login-desc">{{ isRegister ? 'Создайте аккаунт для сохранения отчётов' : 'Войдите чтобы увидеть свои отчёты' }}</p>
 
-        <template v-if="step === 'phone'">
-          <input
-            v-model="phone"
-            type="tel"
-            class="acc-input"
-            placeholder="+7 900 123 45 67"
-            @keyup.enter="sendCode"
-          />
-          <button class="acc-btn" :disabled="authLoading || phone.length < 10" @click="sendCode">
-            {{ authLoading ? 'Отправка...' : 'Получить код' }}
-          </button>
-        </template>
+        <input
+          v-model="email"
+          type="email"
+          class="acc-input"
+          placeholder="Email"
+          @keyup.enter="onSubmit"
+        />
+        <input
+          v-model="password"
+          type="password"
+          class="acc-input"
+          placeholder="Пароль"
+          @keyup.enter="onSubmit"
+        />
+        <button class="acc-btn" :disabled="authLoading || !email || !password" @click="onSubmit">
+          {{ authLoading ? 'Загрузка...' : isRegister ? 'Зарегистрироваться' : 'Войти' }}
+        </button>
 
-        <template v-if="step === 'code'">
-          <p class="acc-code-hint">Код отправлен на {{ phone }}</p>
-          <input
-            v-model="code"
-            type="text"
-            class="acc-input"
-            placeholder="Введите код из SMS"
-            maxlength="6"
-            @keyup.enter="verifyCode"
-          />
-          <button class="acc-btn" :disabled="authLoading || code.length < 4" @click="verifyCode">
-            {{ authLoading ? 'Проверка...' : 'Войти' }}
-          </button>
-          <button class="acc-link" @click="step = 'phone'">← Изменить номер</button>
-        </template>
+        <button class="acc-link" @click="isRegister = !isRegister">
+          {{ isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться' }}
+        </button>
 
         <p v-if="authError" class="acc-error">{{ authError }}</p>
       </div>
@@ -208,23 +177,22 @@ onMounted(loadProfile)
 .acc-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: #fff; border-bottom: 1px solid #e5e5e5; }
 .acc-brand { font-size: 18px; font-weight: 700; color: #1b1b1d; text-decoration: none; }
 .acc-user-info { display: flex; align-items: center; gap: 12px; }
-.acc-phone { font-size: 14px; color: #6b7280; }
+.acc-email { font-size: 14px; color: #6b7280; }
 .acc-logout { font-size: 13px; color: #dc2626; background: none; border: none; cursor: pointer; }
 .acc-center { display: flex; align-items: center; justify-content: center; min-height: 80vh; padding: 24px; }
-.acc-spinner { width: 32px; height: 32px; border: 3px solid #e5e5e5; border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.acc-spinner { width: 32px; height: 32px; border: 3px solid #e5e5e5; border-top-color: #006a62; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .acc-login-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px; padding: 40px 32px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
 .acc-login-title { font-size: 24px; font-weight: 700; margin: 0 0 8px; color: #1b1b1d; }
 .acc-login-desc { font-size: 14px; color: #6b7280; margin: 0 0 24px; }
-.acc-code-hint { font-size: 13px; color: #6b7280; margin: 0 0 12px; }
-.acc-input { width: 100%; padding: 14px 16px; border: 1px solid #e5e5e5; border-radius: 10px; font-size: 16px; text-align: center; margin-bottom: 12px; outline: none; font-family: inherit; }
-.acc-input:focus { border-color: #7c3aed; }
-.acc-btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; background: #7c3aed; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 8px; }
+.acc-input { width: 100%; padding: 14px 16px; border: 1px solid #e5e5e5; border-radius: 10px; font-size: 16px; margin-bottom: 12px; outline: none; font-family: inherit; }
+.acc-input:focus { border-color: #006a62; }
+.acc-btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 10px; background: #006a62; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 8px; }
 .acc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .acc-btn:hover:not(:disabled) { opacity: 0.9; }
-.acc-link { font-size: 13px; color: #6b7280; background: none; border: none; cursor: pointer; }
-.acc-error { font-size: 13px; color: #dc2626; margin-top: 8px; }
+.acc-link { font-size: 13px; color: #006a62; background: none; border: none; cursor: pointer; margin-top: 8px; }
+.acc-error { font-size: 13px; color: #dc2626; margin-top: 12px; }
 
 .acc-content { max-width: 600px; margin: 0 auto; padding: 40px 24px; }
 .acc-title { font-size: 24px; font-weight: 700; margin: 0 0 24px; color: #1b1b1d; }
@@ -232,7 +200,7 @@ onMounted(loadProfile)
 .acc-empty .acc-btn { display: inline-block; width: auto; padding: 12px 24px; margin-top: 16px; text-decoration: none; }
 .acc-reports { display: flex; flex-direction: column; gap: 8px; }
 .acc-report-card { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; cursor: pointer; transition: border-color 0.15s; }
-.acc-report-card:hover { border-color: #7c3aed; }
+.acc-report-card:hover { border-color: #006a62; }
 .acc-report-info { display: flex; flex-direction: column; gap: 4px; }
 .acc-report-mode { font-size: 15px; font-weight: 500; color: #1b1b1d; }
 .acc-report-date { font-size: 13px; color: #6b7280; }
