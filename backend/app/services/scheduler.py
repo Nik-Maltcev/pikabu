@@ -38,8 +38,8 @@ async def _run_scheduled_parse():
 
 async def _scheduler_loop():
     """Main scheduler loop. Runs every 3 days."""
-    # Wait 1 minute after startup before first check
-    await asyncio.sleep(60)
+    # Wait 30 seconds after startup before first check
+    await asyncio.sleep(30)
     
     # Parse interval: 3 days in seconds
     PARSE_INTERVAL = 3 * 24 * 60 * 60  # 259200 seconds
@@ -55,22 +55,26 @@ async def _scheduler_loop():
                 from app.models.database import ParseMetadata
                 from sqlalchemy import select, func
                 
-                async with async_session() as session:
-                    result = await session.execute(
-                        select(func.max(ParseMetadata.last_parsed_at))
-                    )
-                    last_db_parse = result.scalar()
-                    
-                    if last_db_parse is None:
-                        # Never parsed at all
-                        should_parse = True
-                        logger.info("No previous parse found, will parse now")
-                    else:
-                        # Check if 3 days passed
-                        age = (datetime.now(timezone.utc) - last_db_parse).total_seconds()
-                        if age > PARSE_INTERVAL:
+                try:
+                    async with async_session() as session:
+                        result = await session.execute(
+                            select(func.max(ParseMetadata.last_parsed_at))
+                        )
+                        last_db_parse = result.scalar()
+                        
+                        if last_db_parse is None:
+                            # Never parsed at all
                             should_parse = True
-                            logger.info("Last parse was %.1f days ago, will parse now", age / 86400)
+                            logger.info("No previous parse found, will parse now")
+                        else:
+                            # Check if 3 days passed
+                            age = (datetime.now(timezone.utc) - last_db_parse).total_seconds()
+                            if age > PARSE_INTERVAL:
+                                should_parse = True
+                                logger.info("Last parse was %.1f days ago, will parse now", age / 86400)
+                except Exception as db_err:
+                    logger.warning("Could not check parse_metadata table: %s. Will parse.", db_err)
+                    should_parse = True
             else:
                 # Check against in-memory last parse time
                 age = (datetime.now(timezone.utc) - _last_parse_time).total_seconds()
