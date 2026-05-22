@@ -592,7 +592,7 @@ async def _run_analysis_background(
         primary_topic_id, task_id, sources_label, analysis_mode,
     )
 
-    from datetime import timedelta
+    from datetime import datetime, timezone, timedelta
     from sqlalchemy import func
     from app.database import async_session
     from app.services.analyzer import AnalyzerError, AnalyzerService
@@ -776,8 +776,6 @@ async def _run_analysis_background(
                 report_data = await analyzer.hierarchical_aggregate(partial_results, analysis_mode=analysis_mode)
 
                 # Save report
-                from datetime import datetime, timezone
-
                 if analysis_mode == "niche_search":
                     niche_data = {
                         "key_pains": [p.model_dump() if hasattr(p, "model_dump") else p for p in report_data.get("key_pains", [])],
