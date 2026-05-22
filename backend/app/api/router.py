@@ -624,14 +624,14 @@ async def _run_analysis_background(
 
             try:
                 # Check if we have pre-parsed data in DB
-                since = datetime.now(timezone.utc) - timedelta(days=days)
+                # Count ALL posts for these topics (not filtered by date)
+                # Date filtering will happen at analysis stage
                 total_posts_in_db = 0
                 
                 for tid in topic_ids_by_source.values():
                     count_result = await session.execute(
                         select(func.count(Post.id))
                         .where(Post.topic_id == tid)
-                        .where(Post.published_at >= since)
                     )
                     total_posts_in_db += count_result.scalar() or 0
 
@@ -730,7 +730,7 @@ async def _run_analysis_background(
                 for tid in topic_ids_by_source.values():
                     if tid not in seen_topic_ids:
                         seen_topic_ids.add(tid)
-                        topic_posts = await _load_posts_as_dicts(session, tid)
+                        topic_posts = await _load_posts_as_dicts(session, tid, days=days)
                         posts_data.extend(topic_posts)
 
                 chunks = chunk_data(posts_data, max_tokens=settings.llm_chunk_size)
