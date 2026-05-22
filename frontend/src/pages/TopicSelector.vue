@@ -317,7 +317,7 @@ onMounted(async () => {
           <div class="hidden md:flex gap-6">
             <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-[14px] font-medium">Поиск ниш</a>
             <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Мои отчеты</router-link>
-            <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Тарифы</router-link>
+            <router-link to="/#pricing" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Тарифы</router-link>
           </div>
         </div>
         <router-link to="/account" class="bg-black text-white text-[12px] font-medium px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>

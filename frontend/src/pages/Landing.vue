@@ -17,7 +17,7 @@ function goToApp() {
         <div class="hidden md:flex gap-6">
           <router-link to="/app" class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-[29px] md:text-sm font-medium">Поиск ниш</router-link>
           <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[29px] md:text-sm font-medium">Мои отчеты</router-link>
-          <router-link to="/pricing" class="text-slate-600 hover:text-slate-900 text-[29px] md:text-sm font-medium">Тарифы</router-link>
+          <a href="#pricing" class="text-slate-600 hover:text-slate-900 text-[29px] md:text-sm font-medium">Тарифы</a>
         </div>
         <router-link to="/account" class="bg-black text-white text-[25px] md:text-xs font-medium px-3 md:px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
       </div>
@@ -345,7 +345,7 @@ function goToApp() {
       </section>
 
       <!-- Pricing -->
-      <section class="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24">
+      <section id="pricing" class="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24">
         <div class="text-center mb-12">
           <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-4">Тарифы</h2>
           <p class="text-[#45464d]">Простая и прозрачная модель оплаты</p>
