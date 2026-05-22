@@ -30,9 +30,16 @@ router = APIRouter(prefix="/api/payment")
 
 REPORT_PRICE = 4990  # rubles
 
+# Promo codes: code -> price in rubles
+PROMO_CODES = {
+    "BIZMAP2026": 2495,    # 50% off
+    "Amx50100%": 5,        # test price
+}
+
 
 class PaymentCreateRequest(BaseModel):
     report_id: int
+    promo_code: str = ""
 
 
 class PaymentCreateResponse(BaseModel):
@@ -103,11 +110,16 @@ async def create_payment(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Report already paid")
 
+    # Apply promo code
+    price = REPORT_PRICE
+    if request.promo_code and request.promo_code in PROMO_CODES:
+        price = PROMO_CODES[request.promo_code]
+
     # Create payment record
     access_token = secrets.token_hex(32)
     payment = Payment(
         report_id=request.report_id,
-        amount=REPORT_PRICE,
+        amount=price,
         status="pending",
         access_token=access_token,
     )
@@ -122,11 +134,11 @@ async def create_payment(
     description = f"BizMap: полный отчёт #{request.report_id}"
     payment_url = _generate_robokassa_url(
         inv_id=payment.id,
-        amount=REPORT_PRICE,
+        amount=price,
         description=description,
     )
 
-    logger.info(f"Payment created: id={payment.id}, report={request.report_id}, token={access_token[:8]}...")
+    logger.info(f"Payment created: id={payment.id}, report={request.report_id}, price={price}, token={access_token[:8]}...")
 
     return PaymentCreateResponse(
         payment_url=payment_url,
@@ -391,6 +403,22 @@ class PaidAnalysisRequest(BaseModel):
     topic_id: int
     days: int = 14
     fingerprint: str = ""
+    promo_code: str = ""
+
+
+class PromoCheckRequest(BaseModel):
+    code: str
+
+
+@router.post("/promo/check")
+async def check_promo_code(request: PromoCheckRequest):
+    """Check if a promo code is valid and return the discounted price."""
+    code = request.code.strip()
+    if code in PROMO_CODES:
+        price = PROMO_CODES[code]
+        discount_percent = round((1 - price / REPORT_PRICE) * 100)
+        return {"valid": True, "price": price, "discount_percent": discount_percent, "original_price": REPORT_PRICE}
+    return {"valid": False}
 
 
 @router.post("/create-for-analysis")
@@ -402,11 +430,16 @@ async def create_payment_for_analysis(
     Used when free analyses are exhausted.
     Stores topic_id and days in Shp_ params so we can start analysis after payment.
     """
+    # Apply promo code
+    price = REPORT_PRICE
+    if request.promo_code and request.promo_code in PROMO_CODES:
+        price = PROMO_CODES[request.promo_code]
+
     access_token = secrets.token_hex(32)
     payment = Payment(
         report_id=None,  # no report yet — will be created after payment
         topic_id=request.topic_id,
-        amount=REPORT_PRICE,
+        amount=price,
         status="pending",
         access_token=access_token,
     )
@@ -418,7 +451,7 @@ async def create_payment_for_analysis(
     # Build Robokassa URL with Shp_ params to pass topic_id and days
     login = settings.robokassa_login
     password1 = settings.robokassa_password1
-    out_sum = f"{REPORT_PRICE:.2f}"
+    out_sum = f"{price:.2f}"
     inv_id = payment.id
 
     # Shp_ params are included in signature in alphabetical order
