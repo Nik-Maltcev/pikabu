@@ -313,7 +313,7 @@ onMounted(async () => {
     <nav class="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div class="flex justify-between items-center px-6 h-16 max-w-7xl mx-auto">
         <div class="flex items-center gap-8">
-          <span class="text-[20px] font-bold tracking-tight text-slate-900">BizMap</span>
+          <router-link to="/" class="text-[20px] font-bold tracking-tight text-slate-900 no-underline">BizMap</router-link>
           <div class="hidden md:flex gap-6">
             <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-[14px] font-medium">Поиск ниш</a>
             <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Мои отчеты</router-link>
