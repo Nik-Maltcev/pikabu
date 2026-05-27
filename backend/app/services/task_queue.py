@@ -89,7 +89,7 @@ class AnalysisQueue:
         return waiting
     
     async def _run_task(self, queued: QueuedTask):
-        """Execute a task with semaphore control."""
+        """Execute a task with semaphore control and timeout."""
         self._waiting_count += 1
         
         # Wait for a slot
@@ -106,8 +106,11 @@ class AnalysisQueue:
             
             try:
                 coro = queued.coro_factory()
-                await coro
+                # 30 minute timeout — if task hangs longer, it's dead
+                await asyncio.wait_for(coro, timeout=1800)
                 self._total_processed += 1
+            except asyncio.TimeoutError:
+                logger.error("Task %s timed out after 30 minutes", queued.task_id)
             except Exception as e:
                 logger.error("Task %s failed: %s", queued.task_id, e)
             finally:

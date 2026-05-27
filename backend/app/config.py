@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     cache_ttl_hours: int = 24
 
     # Concurrency
-    max_concurrent_analyses: int = 3  # How many analyses can run in parallel
+    max_concurrent_analyses: int = 5  # How many analyses can run in parallel
 
     # Pikabu parser
     pikabu_proxy_url: str = ""  # РФ прокси для pikabu.ru, например "socks5://user:pass@host:port"
