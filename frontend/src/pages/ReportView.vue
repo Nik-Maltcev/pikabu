@@ -148,7 +148,7 @@ onMounted(loadReport)
               <div v-else class="rv-mentions-list">
                 <div v-for="(pain, i) in report.niche_data.key_pains" :key="'m'+i" class="rv-mention-row" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
                   <div class="rv-mention-bar-wrap">
-                    <div class="rv-mention-label">{{ !isPaid && i >= FREE_PAINS ? '████' : pain.description?.substring(0, 30) + (pain.description?.length > 30 ? '...' : '') }}</div>
+                    <div class="rv-mention-label">{{ !isPaid && i >= FREE_PAINS ? '████' : pain.description }}</div>
                     <div class="rv-mention-bar-bg">
                       <div class="rv-mention-bar-fill" :style="{ width: Math.min(100, (pain.mentions_count || 0) / Math.max(...report.niche_data.key_pains.map(p => p.mentions_count || 1)) * 100) + '%' }"></div>
                     </div>
@@ -311,7 +311,7 @@ onMounted(loadReport)
   --accent: #006a62;
   --accent-light: #ecfdf5;
   --accent-bg: #f0fdf4;
-  max-width: 800px; margin: 0 auto; padding: 40px 20px; min-height: 100vh;
+  max-width: 1100px; margin: 0 auto; padding: 40px 20px; min-height: 100vh;
   font-family: 'Inter', system-ui, sans-serif;
 }
 .rv-header { text-align: center; margin-bottom: 32px; }
@@ -402,11 +402,11 @@ onMounted(loadReport)
 .rv-pains-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
 @media (min-width: 1024px) { .rv-pains-grid { grid-template-columns: 1fr 1fr; } }
 
-.rv-mentions-list { display: flex; flex-direction: column; gap: 12px; }
+.rv-mentions-list { display: flex; flex-direction: column; gap: 14px; }
 .rv-mention-row { display: flex; align-items: center; gap: 12px; }
-.rv-mention-bar-wrap { flex: 1; }
-.rv-mention-label { font-size: 13px; color: var(--text-h); font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rv-mention-bar-bg { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
-.rv-mention-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 4px; transition: width 0.5s; }
-.rv-mention-count { font-size: 16px; font-weight: 700; color: var(--accent); min-width: 32px; text-align: right; }
+.rv-mention-bar-wrap { flex: 1; min-width: 0; }
+.rv-mention-label { font-size: 14px; color: var(--text-h); font-weight: 500; margin-bottom: 6px; line-height: 1.4; }
+.rv-mention-bar-bg { height: 10px; background: #f3f4f6; border-radius: 5px; overflow: hidden; }
+.rv-mention-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 5px; transition: width 0.5s; }
+.rv-mention-count { font-size: 18px; font-weight: 700; color: var(--accent); min-width: 36px; text-align: right; }
 </style>
