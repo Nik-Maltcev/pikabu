@@ -77,7 +77,7 @@ async def _update_task(
 
 
 async def _load_posts_as_dicts(session: AsyncSession, topic_id: int, days: int = 0) -> list[dict]:
-    """Load all posts (with comments) for a topic as plain dicts for chunking.
+    """Load posts (with comments) for a topic as plain dicts for chunking.
     
     If days > 0, only loads posts published within the last N days.
     """

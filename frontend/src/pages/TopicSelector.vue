@@ -705,6 +705,17 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- Notification email -->
+        <div class="mb-4">
+          <label class="text-sm text-[#45464d] mb-2 block">Куда отправить результат? (необязательно)</label>
+          <input
+            v-model="contactValue"
+            type="email"
+            class="w-full bg-[#fcf8fa] border border-[#c6c6cd] rounded-lg py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#006a62]"
+            placeholder="your@email.com"
+          />
+        </div>
+
         <!-- Actions -->
         <div class="flex gap-3">
           <button
