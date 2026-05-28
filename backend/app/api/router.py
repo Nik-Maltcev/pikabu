@@ -820,6 +820,15 @@ async def _run_analysis_background(
                 )
                 await session.commit()
 
+                # Send email notification if contact provided
+                if task.contact_type == "email" and task.contact_value:
+                    try:
+                        from app.services.email_sender import send_report_ready_email
+                        report_url = f"{settings.site_url}/reports/{primary_topic_id}/{db_report.id}"
+                        send_report_ready_email(task.contact_value, report_url)
+                    except Exception as email_err:
+                        logger.warning("Email notification failed: %s", email_err)
+
             except Exception as exc:
                 logger.error("Pipeline failed for topic %s: %s", primary_topic_id, exc, exc_info=True)
                 await _update_task(session, task, status="failed", current_stage="Ошибка", error_message=str(exc))
