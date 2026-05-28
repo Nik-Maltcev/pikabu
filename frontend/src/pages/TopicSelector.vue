@@ -526,6 +526,9 @@ onMounted(async () => {
         >
           {{ paymentLoading ? 'Переход к оплате...' : paidPromoApplied ? `Оплатить ${paidPromoPrice.toLocaleString()} ₽` : 'Оплатить и запустить анализ — 4 990 ₽' }}
         </button>
+        <p class="text-xs text-amber-600 mt-3">Если вы уже оплатили, но анализ не начался — нажмите:
+          <button class="underline font-medium text-[#006a62]" @click="onConfirmPaid">Я оплатил</button>
+        </p>
       </div>
       <div v-else-if="limitReached && !selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
         🔒 Бесплатные анализы исчерпаны. Выберите категорию и оплатите для продолжения.
