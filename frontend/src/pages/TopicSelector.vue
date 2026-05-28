@@ -714,6 +714,7 @@ onMounted(async () => {
             Назад
           </button>
           <button
+            v-if="!limitReached"
             class="flex-1 bg-black text-white py-3 px-4 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             :disabled="analyzing"
             @click="onStart"
@@ -723,8 +724,19 @@ onMounted(async () => {
               Запускаем…
             </template>
             <template v-else>
-              Запустить анализ
-              <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+              Демо (бесплатно)
+            </template>
+          </button>
+          <button
+            class="flex-1 bg-[#006a62] text-white py-3 px-4 rounded-lg text-sm font-medium hover:bg-[#005a54] transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            :disabled="paymentLoading"
+            @click="onPaidStart"
+          >
+            <template v-if="paymentLoading">
+              <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            </template>
+            <template v-else>
+              Полный — 4 990 ₽
             </template>
           </button>
         </div>
