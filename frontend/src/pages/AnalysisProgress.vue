@@ -17,12 +17,16 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 const stageLabel = computed(() => {
   if (!status.value) return ''
   const s = status.value.current_stage
-  if (s) return s
+  if (s) {
+    // Remove any trailing percentage from stage text
+    return s.replace(/\s*\d+%\s*$/, '').replace(/\.\.\.\s*$/, '...')
+  }
   const st = status.value.status
   if (st === 'queued') return 'В очереди...'
   if (st === 'pending') return 'Ожидание запуска...'
   if (st === 'parsing') return 'Сбор данных...'
-  if (st === 'chunk_analysis') return 'AI-анализ данных...'
+  if (st === 'updating') return 'Обновление источников...'
+  if (st === 'chunk_analysis') return 'ИИ-анализ данных...'
   if (st === 'aggregating') return 'Формирование отчёта...'
   if (st === 'completed') return 'Анализ завершён!'
   if (st === 'failed') return 'Ошибка'
@@ -123,7 +127,7 @@ onUnmounted(stopPolling)
           <span class="ap-pct">{{ status.progress_percent }}%</span>
         </div>
 
-        <p v-if="status.total_chunks && status.total_chunks > 0" class="ap-meta">
+        <p v-if="false" class="ap-meta">
           Обработано чанков: {{ status.processed_chunks ?? 0 }} / {{ status.total_chunks }}
         </p>
 

@@ -189,7 +189,7 @@ async def _run_parse_only_background(
 
                     async def _progress(stage: str, percent: int, _base=base_pct, _share=95.0/max(num_sources,1)):
                         overall = _base + int(percent * _share / 100)
-                        await _update_task(session, task, current_stage=f"{stage} {percent}%", progress_percent=min(overall, 95))
+                        await _update_task(session, task, current_stage="Сбор данных...", progress_percent=min(overall, 95))
                         await session.commit()
 
                     if src == "pikabu":
@@ -646,7 +646,7 @@ async def _run_analysis_background(
                     await _update_task(
                         session, task,
                         status="updating",
-                        current_stage="Обновление комментариев...",
+                        current_stage="Обновление источников...",
                         progress_percent=5,
                     )
                     await session.commit()
@@ -662,7 +662,7 @@ async def _run_analysis_background(
                             overall = _base + int(percent * _share / 100)
                             await _update_task(
                                 session, task,
-                                current_stage=f"Обновление комментариев ({src})...",
+                                current_stage="Обновление источников...",
                                 progress_percent=min(overall, 45),
                             )
                             await session.commit()
@@ -684,13 +684,13 @@ async def _run_analysis_background(
 
                         if src == "pikabu":
                             parser = ParserService(session)
-                            stage_label = "Загрузка постов с Pikabu..."
+                            stage_label = "Сбор данных..."
                         elif src == "habr":
                             parser = HabrParserService(session)
-                            stage_label = "Загрузка статей с Habr..."
+                            stage_label = "Сбор данных..."
                         elif src == "vcru":
                             parser = VcruParserService(session)
-                            stage_label = "Загрузка статей с VC.ru..."
+                            stage_label = "Сбор данных..."
                         else:
                             continue
 
