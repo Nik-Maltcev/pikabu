@@ -252,27 +252,22 @@ async function onPaidStart() {
   try {
     const code = paidPromoApplied.value ? paidPromoCode.value.trim() : undefined
     const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value, code)
-    // Open Robokassa in new window
-    window.open(result.payment_url, '_blank')
-    // Start polling payment status
+    // Open Robokassa in same tab on mobile, new tab on desktop
+    const invId = result.payment_url.match(/InvId=(\d+)/)?.[1]
+    
+    // Save payment info to localStorage so we can resume polling if user returns
+    if (invId) {
+      localStorage.setItem('bizmap_pending_payment', JSON.stringify({
+        invId,
+        topicId: selectedTopic.value.id,
+        timestamp: Date.now(),
+      }))
+    }
+    
+    // Redirect in same window (mobile-friendly, works with SBP)
     waitingPayment.value = true
     paymentLoading.value = false
-    const invId = result.payment_url.match(/InvId=(\d+)/)?.[1]
-    if (invId) {
-      paymentPollTimer = setInterval(async () => {
-        try {
-          const apiBase = import.meta.env.VITE_API_URL || '/api'
-          const res = await fetch(`${apiBase}/payment/status/${invId}`)
-          const data = await res.json()
-          if (data.paid && data.task_id) {
-            clearInterval(paymentPollTimer!)
-            paymentPollTimer = null
-            waitingPayment.value = false
-            router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(data.topic_id || selectedTopic.value?.id) } })
-          }
-        } catch {}
-      }, 3000)
-    }
+    window.location.href = result.payment_url
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Ошибка создания платежа'
     paymentLoading.value = false
@@ -281,6 +276,37 @@ async function onPaidStart() {
 
 onMounted(async () => {
   fingerprint.value = await generateFingerprint()
+  
+  // Check if user is returning from payment
+  const pendingPayment = localStorage.getItem('bizmap_pending_payment')
+  if (pendingPayment) {
+    try {
+      const { invId, topicId, timestamp } = JSON.parse(pendingPayment)
+      // Only check if payment was created less than 1 hour ago
+      if (Date.now() - timestamp < 3600000) {
+        waitingPayment.value = true
+        const apiBase = import.meta.env.VITE_API_URL || '/api'
+        // Poll until paid or timeout
+        paymentPollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${apiBase}/payment/status/${invId}`)
+            const data = await res.json()
+            if (data.paid && data.task_id) {
+              clearInterval(paymentPollTimer!)
+              paymentPollTimer = null
+              waitingPayment.value = false
+              localStorage.removeItem('bizmap_pending_payment')
+              router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(topicId) } })
+            }
+          } catch {}
+        }, 3000)
+      } else {
+        localStorage.removeItem('bizmap_pending_payment')
+      }
+    } catch {
+      localStorage.removeItem('bizmap_pending_payment')
+    }
+  }
   
   // Check saved auth token
   const savedToken = localStorage.getItem('authToken')
