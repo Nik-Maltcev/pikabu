@@ -80,6 +80,8 @@ async def get_topics(
     try:
         tm = TopicManager(session)
         topics = await tm.fetch_topics(source="all")
+        # Exclude habr-only topics (Habr is disabled due to Playwright issues)
+        topics = [t for t in topics if t.source != "habr"]
         if search:
             topics = TopicManager.filter_topics(topics, search)
         return TopicListResponse(topics=[_topic_to_schema(t) for t in topics])

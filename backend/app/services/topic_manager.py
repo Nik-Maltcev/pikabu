@@ -164,6 +164,7 @@ class TopicManager:
         Returns a list of topics (including the original) that share the
         same name (case-insensitive). This allows unified cross-platform
         analysis when a user selects a single category.
+        Excludes habr topics (disabled due to Playwright issues).
         """
         from sqlalchemy import func
 
@@ -173,7 +174,8 @@ class TopicManager:
 
         result = await self._session.execute(
             select(Topic).where(
-                func.lower(Topic.name) == original.name.lower()
+                func.lower(Topic.name) == original.name.lower(),
+                Topic.source != "habr",
             )
         )
         return list(result.scalars().all())
