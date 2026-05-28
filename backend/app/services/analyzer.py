@@ -227,12 +227,14 @@ NICHE_CHUNK_PROMPT = """\
 Верни ответ как единый JSON-объект строго по этой структуре (без markdown, без лишнего текста):
 {
   "key_pains": [
-    {"description": "...", "frequency": "...", "emotional_charge": "...", "examples": ["..."]}
+    {"description": "...", "frequency": "...", "emotional_charge": "...", "mentions_count": 5, "examples": ["..."]}
   ],
   "jtbd_analyses": [
     {"pain_description": "...", "situational": "...", "functional": "...", "emotional": "...", "current_solution": "..."}
   ]
 }
+
+ВАЖНО: mentions_count — это примерное количество постов/комментариев в данных, где упоминается эта боль. Считай реальные упоминания.
 
 Данные для анализа:
 """
@@ -277,7 +279,7 @@ emotional (эмоциональная задача), current_solution (теку�
 Верни ответ как единый JSON-объект строго по этой структуре (без markdown, без лишнего текста):
 {
   "key_pains": [
-    {"description": "...", "frequency": "...", "emotional_charge": "...", "examples": ["..."]}
+    {"description": "...", "frequency": "...", "emotional_charge": "...", "mentions_count": 5, "examples": ["..."]}
   ],
   "jtbd_analyses": [
     {"pain_description": "...", "situational": "...", "functional": "...", "emotional": "...", "current_solution": "..."}

@@ -44,6 +44,7 @@ class KeyPain(BaseModel):
     description: str
     frequency: str  # "Массово" / "Часто" / "Периодически" / "Редко, но метко"
     emotional_charge: str  # "Высокий" / "Средний"
+    mentions_count: int = 0  # Approximate number of posts/comments mentioning this pain
     examples: list[str] = []
 
 

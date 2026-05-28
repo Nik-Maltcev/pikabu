@@ -118,25 +118,46 @@ onMounted(loadReport)
 
         <!-- Key Pains (first FREE_PAINS free) -->
         <section class="rv-section">
-          <h2 class="rv-section-title">🔥 ТОП Ключевых болей</h2>
-          <div v-if="report.niche_data.key_pains.length === 0" class="rv-empty">Нет данных</div>
-          <ul v-else class="rv-list">
-            <li v-for="(pain, i) in report.niche_data.key_pains" :key="i" class="rv-card" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
-              <div class="rv-card-header">
-                <span class="rv-card-name">{{ !isPaid && i >= FREE_PAINS ? '████████ ██████' : pain.description }}</span>
-                <div class="rv-badges">
-                  <span class="rv-badge" :class="frequencyColor(pain.frequency)">{{ pain.frequency }}</span>
-                  <span class="rv-badge" :class="pain.emotional_charge === 'Высокий' ? 'rv-badge--high' : 'rv-badge--medium'">{{ pain.emotional_charge }}</span>
+          <div class="rv-pains-grid">
+            <!-- Left: Top Pains -->
+            <div>
+              <h2 class="rv-section-title">🔥 ТОП Ключевых болей</h2>
+              <div v-if="report.niche_data.key_pains.length === 0" class="rv-empty">Нет данных</div>
+              <ul v-else class="rv-list">
+                <li v-for="(pain, i) in report.niche_data.key_pains" :key="i" class="rv-card" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
+                  <div class="rv-card-header">
+                    <span class="rv-card-name">{{ !isPaid && i >= FREE_PAINS ? '████████ ██████' : pain.description }}</span>
+                    <div class="rv-badges">
+                      <span class="rv-badge" :class="frequencyColor(pain.frequency)">{{ pain.frequency }}</span>
+                      <span class="rv-badge" :class="pain.emotional_charge === 'Высокий' ? 'rv-badge--high' : 'rv-badge--medium'">{{ pain.emotional_charge }}</span>
+                    </div>
+                  </div>
+                  <div v-if="(isPaid || i < FREE_PAINS) && pain.examples && pain.examples.length > 0" class="rv-examples">
+                    <span class="rv-examples-label">Цитаты:</span>
+                    <ul class="rv-examples-list">
+                      <li v-for="(ex, j) in pain.examples" :key="j">«{{ ex }}»</li>
+                    </ul>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <!-- Right: Mentions Rating -->
+            <div>
+              <h2 class="rv-section-title">📊 Рейтинг упоминаний</h2>
+              <div v-if="report.niche_data.key_pains.length === 0" class="rv-empty">Нет данных</div>
+              <div v-else class="rv-mentions-list">
+                <div v-for="(pain, i) in report.niche_data.key_pains" :key="'m'+i" class="rv-mention-row" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
+                  <div class="rv-mention-bar-wrap">
+                    <div class="rv-mention-label">{{ !isPaid && i >= FREE_PAINS ? '████' : pain.description?.substring(0, 30) + (pain.description?.length > 30 ? '...' : '') }}</div>
+                    <div class="rv-mention-bar-bg">
+                      <div class="rv-mention-bar-fill" :style="{ width: Math.min(100, (pain.mentions_count || 0) / Math.max(...report.niche_data.key_pains.map(p => p.mentions_count || 1)) * 100) + '%' }"></div>
+                    </div>
+                  </div>
+                  <span class="rv-mention-count">{{ pain.mentions_count || 0 }}</span>
                 </div>
               </div>
-              <div v-if="(isPaid || i < FREE_PAINS) && pain.examples && pain.examples.length > 0" class="rv-examples">
-                <span class="rv-examples-label">Цитаты:</span>
-                <ul class="rv-examples-list">
-                  <li v-for="(ex, j) in pain.examples" :key="j">«{{ ex }}»</li>
-                </ul>
-              </div>
-            </li>
-          </ul>
+            </div>
+          </div>
         </section>
 
         <!-- JTBD Analysis (paid only) -->
@@ -376,4 +397,16 @@ onMounted(loadReport)
 .rv-freq--often { color: #d97706; background: #fffbeb; font-weight: 600; }
 .rv-freq--periodic { color: #2563eb; background: #eff6ff; font-weight: 600; }
 .rv-freq--rare { color: #6b7280; background: #f3f4f6; }
+
+/* Two-column pains layout */
+.rv-pains-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
+@media (min-width: 1024px) { .rv-pains-grid { grid-template-columns: 1fr 1fr; } }
+
+.rv-mentions-list { display: flex; flex-direction: column; gap: 12px; }
+.rv-mention-row { display: flex; align-items: center; gap: 12px; }
+.rv-mention-bar-wrap { flex: 1; }
+.rv-mention-label { font-size: 13px; color: var(--text-h); font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-mention-bar-bg { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.rv-mention-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 4px; transition: width 0.5s; }
+.rv-mention-count { font-size: 16px; font-weight: 700; color: var(--accent); min-width: 32px; text-align: right; }
 </style>
