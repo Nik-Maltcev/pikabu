@@ -454,7 +454,7 @@ onMounted(async () => {
         <!-- Promo code -->
         <div class="flex gap-2 mb-3">
           <input v-model="paidPromoCode" type="text" placeholder="Промокод" class="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white" @keyup.enter="onApplyPaidPromo" />
-          <button class="px-3 py-2 bg-amber-200 text-amber-900 rounded-lg text-sm font-medium" @click="onApplyPaidPromo">OK</button>
+          <button class="px-4 py-2 bg-[#006a62] text-white rounded-lg text-sm font-medium hover:bg-[#005a54] transition-colors" @click="onApplyPaidPromo">Применить</button>
         </div>
         <p v-if="paidPromoApplied" class="text-green-700 text-xs mb-2">✓ Скидка {{ paidPromoDiscount }}% — цена {{ paidPromoPrice.toLocaleString() }} ₽</p>
         <p v-if="paidPromoError" class="text-red-700 text-xs mb-2">{{ paidPromoError }}</p>
