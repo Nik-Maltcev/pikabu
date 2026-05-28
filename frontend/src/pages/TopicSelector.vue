@@ -311,8 +311,8 @@ onMounted(async () => {
   if (pendingPayment) {
     try {
       const { invId, topicId, timestamp } = JSON.parse(pendingPayment)
-      // Only check if payment was created less than 1 hour ago
-      if (Date.now() - timestamp < 3600000) {
+      // Only check if payment was created less than 30 minutes ago
+      if (Date.now() - timestamp < 1800000) {
         waitingPayment.value = true
         const apiBase = import.meta.env.VITE_API_URL || '/api'
         // Poll until paid or timeout

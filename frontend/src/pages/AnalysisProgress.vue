@@ -50,6 +50,9 @@ const isTerminal = computed(() => {
   return status.value.status === 'completed' || status.value.status === 'failed'
 })
 
+const isStuck = ref(false)
+let stuckTimer: ReturnType<typeof setTimeout> | null = null
+
 const isFailed = computed(() => status.value?.status === 'failed')
 const isCompleted = computed(() => status.value?.status === 'completed')
 
@@ -74,10 +77,17 @@ async function fetchStatus() {
 function startPolling() {
   fetchStatus()
   pollTimer = setInterval(fetchStatus, 2500)
+  // If no progress after 30 minutes, consider it stuck
+  stuckTimer = setTimeout(() => {
+    if (!isTerminal.value) {
+      isStuck.value = true
+    }
+  }, 1800000)
 }
 
 function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+  if (stuckTimer) { clearTimeout(stuckTimer); stuckTimer = null }
 }
 
 function goToReport() {
@@ -131,9 +141,13 @@ onUnmounted(stopPolling)
           Обработано чанков: {{ status.processed_chunks ?? 0 }} / {{ status.total_chunks }}
         </p>
 
-        <div v-if="!isTerminal" class="ap-pulse">
+        <div v-if="!isTerminal && !isStuck" class="ap-pulse">
           <span class="ap-dot"></span>
           <span class="ap-pulse-text">Обновляется автоматически</span>
+        </div>
+
+        <div v-if="isStuck" class="ap-error-box">
+          Анализ завис. Попробуйте запустить заново.
         </div>
 
         <div v-if="isFailed && status.error_message" class="ap-error-box">
@@ -144,8 +158,8 @@ onUnmounted(stopPolling)
           <button v-if="isCompleted && status.report_id != null" class="ap-btn ap-btn--primary" @click="goToReport">
             📄 Посмотреть отчёт
           </button>
-          <button v-if="isFailed" class="ap-btn ap-btn--outline" @click="goBack">
-            ← Назад
+          <button v-if="isFailed || isStuck" class="ap-btn ap-btn--outline" @click="goBack">
+            ← Начать заново
           </button>
         </div>
       </div>
