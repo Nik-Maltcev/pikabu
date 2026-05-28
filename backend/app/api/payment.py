@@ -398,6 +398,74 @@ async def payment_status(
     }
 
 
+@router.post("/confirm/{inv_id}")
+async def confirm_payment(
+    inv_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Manual payment confirmation. Called when user clicks 'I paid'.
+    
+    Marks payment as paid and launches analysis if webhook didn't arrive.
+    """
+    import asyncio
+
+    result = await session.execute(
+        select(Payment).where(Payment.robokassa_inv_id == inv_id)
+    )
+    payment = result.scalar_one_or_none()
+    if payment is None:
+        return {"paid": False, "error": "Payment not found"}
+
+    # Already paid and task exists
+    if payment.status == "paid" and payment.task_id:
+        return {"paid": True, "task_id": payment.task_id, "topic_id": payment.topic_id}
+
+    # Mark as paid (trust the user — they already paid via bank)
+    if payment.status != "paid":
+        payment.status = "paid"
+        payment.paid_at = datetime.now(timezone.utc)
+
+    # Launch analysis if not already launched
+    if not payment.task_id and payment.topic_id:
+        from app.api.router import _run_analysis_background
+        from app.models.database import AnalysisTask
+        from app.services.topic_manager import TopicManager
+
+        topic_id = payment.topic_id
+        days = 14  # default
+
+        tm = TopicManager(session)
+        all_topics = await tm.find_duplicates_by_name(topic_id)
+        topic_ids_by_source: dict[str, int] = {}
+        for t in all_topics:
+            topic_ids_by_source[t.source] = t.id
+        sources_label = ",".join(sorted(topic_ids_by_source.keys()))
+
+        task = AnalysisTask(topic_id=topic_id, status="pending", progress_percent=0, analysis_mode="niche_search")
+        session.add(task)
+        await session.flush()
+        task_id = task.id
+
+        payment.task_id = str(task_id)
+        await session.commit()
+
+        asyncio.create_task(
+            _run_analysis_background(
+                primary_topic_id=topic_id,
+                topic_ids_by_source=topic_ids_by_source,
+                task_id=task_id,
+                days=days,
+                analysis_mode="niche_search",
+                sources_label=sources_label,
+            )
+        )
+        logger.info(f"Manual confirm: launched analysis task={task_id}, topic={topic_id}")
+        return {"paid": True, "task_id": str(task_id), "topic_id": topic_id}
+
+    await session.commit()
+    return {"paid": True, "task_id": payment.task_id, "topic_id": payment.topic_id}
+
+
 class PaidAnalysisRequest(BaseModel):
     """Request to create a paid analysis (when free limit is exhausted)."""
     topic_id: int

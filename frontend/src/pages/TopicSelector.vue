@@ -274,6 +274,35 @@ async function onPaidStart() {
   }
 }
 
+async function onConfirmPaid() {
+  const pendingPayment = localStorage.getItem('bizmap_pending_payment')
+  if (!pendingPayment) return
+  
+  try {
+    const { invId, topicId } = JSON.parse(pendingPayment)
+    const apiBase = import.meta.env.VITE_API_URL || '/api'
+    
+    // Call backend to force-check and confirm payment
+    const res = await fetch(`${apiBase}/payment/confirm/${invId}`, { method: 'POST' })
+    const data = await res.json()
+    
+    if (data.paid && data.task_id) {
+      if (paymentPollTimer) { clearInterval(paymentPollTimer); paymentPollTimer = null }
+      waitingPayment.value = false
+      localStorage.removeItem('bizmap_pending_payment')
+      router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(topicId) } })
+    } else if (data.paid && !data.task_id) {
+      // Paid but task not created yet - wait a bit
+      error.value = 'Оплата подтверждена, запускаем анализ...'
+      setTimeout(() => location.reload(), 3000)
+    } else {
+      error.value = 'Оплата ещё не подтверждена. Подождите немного и попробуйте снова.'
+    }
+  } catch (e: any) {
+    error.value = 'Ошибка проверки оплаты'
+  }
+}
+
 onMounted(async () => {
   fingerprint.value = await generateFingerprint()
   
@@ -470,7 +499,13 @@ onMounted(async () => {
       <div v-if="waitingPayment" class="bg-blue-50 text-blue-800 border border-blue-200 rounded-xl px-5 py-4 text-sm text-center">
         <div class="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
         <p class="font-semibold mb-1">⏳ Ожидаем подтверждение оплаты...</p>
-        <p>Завершите оплату в открывшемся окне. Страница обновится автоматически.</p>
+        <p class="mb-3">Завершите оплату и вернитесь на эту страницу.</p>
+        <button
+          class="bg-[#006a62] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#005a54] transition-colors"
+          @click="onConfirmPaid"
+        >
+          ✓ Я оплатил
+        </button>
       </div>
 
       <!-- Limit -->
