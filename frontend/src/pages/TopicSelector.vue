@@ -311,16 +311,16 @@ onMounted(async () => {
   <div class="bg-[#fcf8fa] text-[#1b1b1d] min-h-screen flex flex-col font-['Inter']">
     <!-- Navbar -->
     <nav class="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-      <div class="flex justify-between items-center px-6 h-16 max-w-7xl mx-auto">
-        <div class="flex items-center gap-8">
-          <router-link to="/" class="text-[20px] font-bold tracking-tight text-slate-900 no-underline">BizMap</router-link>
-          <div class="hidden md:flex gap-6">
-            <a class="text-cyan-600 border-b-2 border-cyan-600 pb-1 text-[14px] font-medium">Поиск ниш</a>
-            <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Мои отчеты</router-link>
-            <router-link to="/#pricing" class="text-slate-600 hover:text-slate-900 text-[14px] font-medium cursor-pointer">Тарифы</router-link>
+      <div class="flex justify-between items-center px-4 h-[60px] max-w-7xl mx-auto">
+        <div class="flex items-center gap-5">
+          <router-link to="/" class="text-[22px] font-bold tracking-tight text-slate-900 no-underline">BizMap</router-link>
+          <div class="flex gap-4">
+            <a class="text-cyan-600 border-b-2 border-cyan-600 pb-0.5 text-[18px] font-medium">Ниши</a>
+            <router-link to="/account" class="text-slate-600 hover:text-slate-900 text-[18px] font-medium cursor-pointer">Отчеты</router-link>
+            <router-link to="/#pricing" class="text-slate-600 hover:text-slate-900 text-[18px] font-medium cursor-pointer">Цены</router-link>
           </div>
         </div>
-        <router-link to="/account" class="bg-black text-white text-[12px] font-medium px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
+        <router-link to="/account" class="bg-black text-white text-[16px] font-medium px-4 py-2 rounded-lg hover:opacity-80 transition-opacity no-underline">Войти</router-link>
       </div>
     </nav>
 
