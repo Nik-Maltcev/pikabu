@@ -311,7 +311,7 @@ onMounted(loadReport)
   --accent: #006a62;
   --accent-light: #ecfdf5;
   --accent-bg: #f0fdf4;
-  max-width: 1100px; margin: 0 auto; padding: 40px 20px; min-height: 100vh;
+  max-width: 1400px; margin: 0 auto; padding: 40px 20px; min-height: 100vh;
   font-family: 'Inter', system-ui, sans-serif;
 }
 .rv-header { text-align: center; margin-bottom: 32px; }
@@ -400,7 +400,7 @@ onMounted(loadReport)
 
 /* Two-column pains layout */
 .rv-pains-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
-@media (min-width: 1024px) { .rv-pains-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1024px) { .rv-pains-grid { grid-template-columns: 1fr 1fr; gap: 40px; } }
 
 .rv-mentions-list { display: flex; flex-direction: column; gap: 14px; }
 .rv-mention-row { display: flex; align-items: center; gap: 12px; }
