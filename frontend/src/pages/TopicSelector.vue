@@ -264,10 +264,32 @@ async function onPaidStart() {
       }))
     }
     
-    // Redirect in same window (mobile-friendly, works with SBP)
-    waitingPayment.value = true
-    paymentLoading.value = false
-    window.location.href = result.payment_url
+    // Open Robokassa: new tab on desktop (polling stays), same tab on mobile (localStorage fallback)
+    const isMobile = window.innerWidth < 1024
+    if (isMobile) {
+      window.location.href = result.payment_url
+    } else {
+      window.open(result.payment_url, '_blank')
+      // Start polling payment status
+      waitingPayment.value = true
+      paymentLoading.value = false
+      if (invId) {
+        paymentPollTimer = setInterval(async () => {
+          try {
+            const apiBase = import.meta.env.VITE_API_URL || '/api'
+            const res = await fetch(`${apiBase}/payment/status/${invId}`)
+            const data = await res.json()
+            if (data.paid && data.task_id) {
+              clearInterval(paymentPollTimer!)
+              paymentPollTimer = null
+              waitingPayment.value = false
+              localStorage.removeItem('bizmap_pending_payment')
+              router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(data.topic_id || selectedTopic.value?.id) } })
+            }
+          } catch {}
+        }, 3000)
+      }
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Ошибка создания платежа'
     paymentLoading.value = false
