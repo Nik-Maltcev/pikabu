@@ -534,6 +534,15 @@ onMounted(async () => {
       <div v-else-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
         <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
         <p class="mb-3">Оплатите — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
+        <!-- Email for notification -->
+        <div class="mb-3">
+          <input
+            v-model="contactValue"
+            type="email"
+            class="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white"
+            placeholder="Email для уведомления (необязательно)"
+          />
+        </div>
         <!-- Promo code -->
         <div class="flex gap-2 mb-3">
           <input v-model="paidPromoCode" type="text" placeholder="Промокод" class="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-sm bg-white" @keyup.enter="onApplyPaidPromo" />
