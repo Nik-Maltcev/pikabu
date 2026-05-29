@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     llm_context_window: int = 131_072
     llm_max_tokens_chunk: int = 16384         # max_tokens для анализа чанков
     llm_max_tokens_aggregation: int = 16384   # max_tokens для агрегации
-    llm_chunk_size: int = 20000               # макс. токенов входных данных на чанк
+    llm_chunk_size: int = 100000               # макс. токенов входных данных на чанк
 
     # Z.AI / GLM settings
     glm_api_key: str = ""

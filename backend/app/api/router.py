@@ -759,7 +759,7 @@ async def _run_analysis_background(
                         session, task,
                         processed_chunks=processed,
                         progress_percent=min(chunk_progress, 85),
-                        current_stage=f"AI-анализ: чанк {processed} из {total_chunks}...",
+                        current_stage=f"AI-анализ: часть {processed} из {total_chunks}...",
                     )
                     await session.commit()
 
