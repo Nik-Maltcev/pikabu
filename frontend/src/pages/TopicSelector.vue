@@ -555,7 +555,7 @@ onMounted(async () => {
           :disabled="paymentLoading"
           @click="onPaidStart"
         >
-          {{ paymentLoading ? 'Переход к оплате...' : paidPromoApplied ? `Оплатить ${paidPromoPrice.toLocaleString()} ₽` : 'Оплатить и запустить анализ — 4 990 ₽' }}
+          {{ paymentLoading ? 'Переход к оплате...' : paidPromoApplied ? `Оплатить ${paidPromoPrice.toLocaleString()} ₽` : 'Оплатить и запустить анализ — 1 490 ₽' }}
         </button>
         <p class="text-xs text-amber-600 mt-3">Если вы уже оплатили, но анализ не начался — нажмите:
           <button class="underline font-medium text-[#006a62]" @click="onConfirmPaid">Я оплатил</button>
@@ -778,7 +778,7 @@ onMounted(async () => {
               <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             </template>
             <template v-else>
-              Полный — 4 990 ₽
+              Полный — 1 490 ₽
             </template>
           </button>
         </div>

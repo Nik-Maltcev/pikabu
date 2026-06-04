@@ -74,6 +74,7 @@ async def on_startup():
             "ALTER TABLE users ALTER COLUMN phone DROP NOT NULL",
             # Analysis task user_id for linking
             "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS user_id INTEGER",
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50)",
         ]:
             try:
                 await conn.execute(text(stmt))

@@ -265,6 +265,7 @@ class Payment(Base):
     access_token = Column(String(64), unique=True, nullable=False, index=True)
     robokassa_inv_id = Column(Integer, unique=True, nullable=True)
     task_id = Column(String(64), nullable=True)  # analysis task UUID after paid launch
+    promo_code = Column(String(50), nullable=True)  # promo code used
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

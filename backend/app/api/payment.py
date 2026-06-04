@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payment")
 
-REPORT_PRICE = 4990  # rubles
+REPORT_PRICE = 1490  # rubles
 
 # Promo codes: code -> price in rubles
 PROMO_CODES = {
-    "BIZMAP2026": 2495,    # 50% off
+    "BIZFIRST": 745,       # 50% off, one-time
     "Amx50100%": 5,        # test price
 }
 
@@ -122,6 +122,7 @@ async def create_payment(
         amount=price,
         status="pending",
         access_token=access_token,
+        promo_code=request.promo_code if request.promo_code in PROMO_CODES else None,
     )
     session.add(payment)
     await session.flush()
@@ -479,14 +480,26 @@ class PromoCheckRequest(BaseModel):
 
 
 @router.post("/promo/check")
-async def check_promo_code(request: PromoCheckRequest):
+async def check_promo_code(request: PromoCheckRequest, session: AsyncSession = Depends(get_session)):
     """Check if a promo code is valid and return the discounted price."""
     code = request.code.strip()
-    if code in PROMO_CODES:
-        price = PROMO_CODES[code]
-        discount_percent = round((1 - price / REPORT_PRICE) * 100)
-        return {"valid": True, "price": price, "discount_percent": discount_percent, "original_price": REPORT_PRICE}
-    return {"valid": False}
+    if code not in PROMO_CODES:
+        return {"valid": False}
+    
+    # Check if one-time promo already used
+    if code == "BIZFIRST":
+        used = await session.execute(
+            select(Payment).where(
+                Payment.promo_code == code,
+                Payment.status == "paid",
+            )
+        )
+        if used.scalar_one_or_none():
+            return {"valid": False, "error": "Промокод уже использован"}
+    
+    price = PROMO_CODES[code]
+    discount_percent = round((1 - price / REPORT_PRICE) * 100)
+    return {"valid": True, "price": price, "discount_percent": discount_percent, "original_price": REPORT_PRICE}
 
 
 @router.post("/create-for-analysis")

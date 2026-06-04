@@ -386,7 +386,7 @@ function goToApp() {
             <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#006a62] text-white text-xs font-semibold px-4 py-1 rounded-full">ПОПУЛЯРНЫЙ</div>
             <div class="text-xs font-semibold text-[#006a62] bg-[#57fae9]/20 px-3 py-1 rounded-full w-fit mb-4">ПОЛНЫЙ ДОСТУП</div>
             <h3 class="text-lg font-semibold text-[#1b1b1d] mb-2">Полный отчёт</h3>
-            <p class="text-3xl font-bold text-[#1b1b1d] mb-4">4 990 ₽</p>
+            <p class="text-3xl font-bold text-[#1b1b1d] mb-4">1 490 ₽</p>
             <ul class="text-base text-[#44474d] space-y-2 mb-6">
               <li class="flex items-start gap-2">
                 <span class="material-symbols-outlined text-[#006a62] text-lg mt-0.5">check</span>
