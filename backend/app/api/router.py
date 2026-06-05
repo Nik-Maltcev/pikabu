@@ -827,7 +827,7 @@ async def _run_analysis_background(
                     try:
                         from app.services.email_sender import send_report_ready_email
                         report_url = f"{settings.site_url}/reports/{primary_topic_id}/{db_report.id}"
-                        send_report_ready_email(task.contact_value, report_url)
+                        await send_report_ready_email(task.contact_value, report_url)
                     except Exception as email_err:
                         logger.warning("Email notification failed: %s", email_err)
 

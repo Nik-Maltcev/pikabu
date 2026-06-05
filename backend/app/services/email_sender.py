@@ -1,23 +1,19 @@
-"""Email notification service via SMTP."""
+"""Email notification service via Resend API."""
 
 import logging
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def send_report_ready_email(to_email: str, report_url: str, topic_name: str = ""):
-    """Send email notification that report is ready."""
-    if not settings.smtp_host or not settings.smtp_user:
-        logger.warning("SMTP not configured, skipping email to %s", to_email)
+async def send_report_ready_email(to_email: str, report_url: str, topic_name: str = ""):
+    """Send email notification that report is ready via Resend."""
+    if not settings.resend_api_key:
+        logger.warning("RESEND_API_KEY not configured, skipping email to %s", to_email)
         return False
 
-    subject = "BizMap: ваш отчёт готов!"
-    
     html_body = f"""
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px 24px;">
         <h1 style="color: #006a62; font-size: 24px; margin: 0 0 16px;">BizMap</h1>
@@ -29,25 +25,29 @@ def send_report_ready_email(to_email: str, report_url: str, topic_name: str = ""
             Посмотреть отчёт
         </a>
         <p style="font-size: 12px; color: #9ca3af; margin: 24px 0 0;">
-            Это автоматическое уведомление от BizMap. Не отвечайте на это письмо.
+            Это автоматическое уведомление от BizMap.
         </p>
     </div>
     """
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"BizMap <{settings.smtp_user}>"
-        msg["To"] = to_email
-
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port) as server:
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(settings.smtp_user, to_email, msg.as_string())
-
-        logger.info("Email sent to %s", to_email)
-        return True
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+                json={
+                    "from": settings.resend_from_email,
+                    "to": [to_email],
+                    "subject": "BizMap: ваш отчёт готов!",
+                    "html": html_body,
+                },
+            )
+            if resp.status_code in (200, 201):
+                logger.info("Email sent to %s via Resend", to_email)
+                return True
+            else:
+                logger.error("Resend error %d: %s", resp.status_code, resp.text)
+                return False
     except Exception as e:
         logger.error("Failed to send email to %s: %s", to_email, e)
         return False
