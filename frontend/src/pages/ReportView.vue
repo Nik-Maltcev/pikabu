@@ -319,6 +319,9 @@ onMounted(loadReport)
         </section>
 
       </template>
+
+      <!-- ===== STANDARD REPORT (no paywall) ===== -->
+      <template v-else>
         <section class="rv-section">
           <h2 class="rv-section-title">🔥 Часто обсуждаемые темы</h2>
           <ul v-if="report.hot_topics.length" class="rv-list">
