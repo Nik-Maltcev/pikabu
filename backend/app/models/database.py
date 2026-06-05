@@ -266,6 +266,7 @@ class Payment(Base):
     robokassa_inv_id = Column(Integer, unique=True, nullable=True)
     task_id = Column(String(64), nullable=True)  # analysis task UUID after paid launch
     promo_code = Column(String(50), nullable=True)  # promo code used
+    questions_used = Column(Integer, default=0)  # chat questions used (limit 3)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

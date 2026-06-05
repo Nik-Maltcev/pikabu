@@ -9,6 +9,7 @@ from app.api.payment import router as payment_router
 from app.api.auth import router as auth_router
 from app.api.admin import router as admin_router
 from app.api.cron import router as cron_router
+from app.api.chat import router as chat_router
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +40,7 @@ app.include_router(payment_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(cron_router)
+app.include_router(chat_router)
 
 
 @app.on_event("startup")
@@ -75,6 +77,7 @@ async def on_startup():
             # Analysis task user_id for linking
             "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS user_id INTEGER",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50)",
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS questions_used INTEGER DEFAULT 0",
         ]:
             try:
                 await conn.execute(text(stmt))

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getReport, createPayment, checkPayment, checkPromoCode } from '../api/client'
+import { getReport, createPayment, checkPayment, checkPromoCode, askQuestion } from '../api/client'
 import type { Report } from '../types/api'
 
 const route = useRoute()
@@ -23,6 +23,30 @@ const promoError = ref('')
 
 const FREE_PAINS = 3
 const FREE_IDEAS = 2
+
+// Chat state
+const chatInput = ref('')
+const chatLoading = ref(false)
+const chatRemaining = ref(3)
+const chatMessages = ref<{ role: 'user' | 'ai'; text: string }[]>([])
+const chatAccessToken = ref('')
+
+async function onAskChat() {
+  if (!chatInput.value.trim() || chatLoading.value || chatRemaining.value <= 0) return
+  const question = chatInput.value.trim()
+  chatMessages.value.push({ role: 'user', text: question })
+  chatInput.value = ''
+  chatLoading.value = true
+  try {
+    const res = await askQuestion(topicId, question, chatAccessToken.value)
+    chatMessages.value.push({ role: 'ai', text: res.answer })
+    chatRemaining.value = res.questions_remaining
+  } catch (e: any) {
+    chatMessages.value.push({ role: 'ai', text: e?.response?.data?.detail || 'Ошибка' })
+  } finally {
+    chatLoading.value = false
+  }
+}
 
 const isNiche = computed(() => report.value?.analysis_mode === 'niche_search' && report.value?.niche_data)
 
@@ -47,6 +71,9 @@ async function loadReport() {
     const token = (route.query.token as string) || ''
     const payStatus = await checkPayment(reportId, token, topicId)
     isPaid.value = payStatus.paid
+    if (payStatus.paid && payStatus.access_token) {
+      chatAccessToken.value = payStatus.access_token
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось загрузить отчёт'
   } finally {
@@ -272,10 +299,26 @@ onMounted(loadReport)
           </div>
         </section>
 
-      </template>
+        <!-- Chat Widget (paid only) -->
+        <section v-if="isPaid" class="rv-section">
+          <h2 class="rv-section-title">💬 Спросить у ИИ</h2>
+          <p class="rv-chat-hint">Задайте вопрос по собранным данным ({{ chatRemaining }} из 3 вопросов осталось)</p>
+          <div class="rv-chat-box">
+            <div v-for="(msg, i) in chatMessages" :key="i" class="rv-chat-msg" :class="msg.role === 'user' ? 'rv-chat-msg--user' : 'rv-chat-msg--ai'">
+              <span class="rv-chat-role">{{ msg.role === 'user' ? 'Вы:' : 'ИИ:' }}</span>
+              <p class="rv-chat-text">{{ msg.text }}</p>
+            </div>
+          </div>
+          <div v-if="chatRemaining > 0" class="rv-chat-input-row">
+            <input v-model="chatInput" type="text" class="rv-chat-input" placeholder="Задайте вопрос..." @keyup.enter="onAskChat" />
+            <button class="rv-chat-send" :disabled="chatLoading || !chatInput.trim()" @click="onAskChat">
+              {{ chatLoading ? '...' : '→' }}
+            </button>
+          </div>
+          <p v-else class="rv-chat-exhausted">Лимит вопросов исчерпан</p>
+        </section>
 
-      <!-- ===== STANDARD REPORT (no paywall) ===== -->
-      <template v-else>
+      </template>
         <section class="rv-section">
           <h2 class="rv-section-title">🔥 Часто обсуждаемые темы</h2>
           <ul v-if="report.hot_topics.length" class="rv-list">
@@ -394,6 +437,22 @@ onMounted(loadReport)
 @keyframes rv-spin { to { transform: rotate(360deg); } }
 
 .rv-freq--mass { color: #dc2626; background: #fef2f2; font-weight: 600; }
+
+/* Chat widget */
+.rv-chat-hint { font-size: 14px; color: var(--text); margin: 0 0 12px; }
+.rv-chat-box { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; padding: 12px; background: #f9fafb; border-radius: 12px; border: 1px solid var(--border); }
+.rv-chat-msg { padding: 10px 14px; border-radius: 10px; max-width: 85%; }
+.rv-chat-msg--user { align-self: flex-end; background: var(--accent); color: #fff; }
+.rv-chat-msg--user .rv-chat-role { color: rgba(255,255,255,0.7); }
+.rv-chat-msg--ai { align-self: flex-start; background: #fff; border: 1px solid var(--border); }
+.rv-chat-role { font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px; }
+.rv-chat-text { margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.rv-chat-input-row { display: flex; gap: 8px; }
+.rv-chat-input { flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; }
+.rv-chat-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,106,98,0.1); }
+.rv-chat-send { padding: 12px 20px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; }
+.rv-chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.rv-chat-exhausted { font-size: 13px; color: var(--text); font-style: italic; }
 .rv-freq--often { color: #d97706; background: #fffbeb; font-weight: 600; }
 .rv-freq--periodic { color: #2563eb; background: #eff6ff; font-weight: 600; }
 .rv-freq--rare { color: #6b7280; background: #f3f4f6; }

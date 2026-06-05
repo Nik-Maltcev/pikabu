@@ -152,3 +152,20 @@ export async function checkAuth(token: string): Promise<AuthCheckResponse> {
   })
   return data
 }
+
+
+// --- Chat API ---
+
+export interface ChatResponse {
+  answer: string
+  questions_remaining: number
+}
+
+export async function askQuestion(topicId: number, question: string, accessToken: string): Promise<ChatResponse> {
+  const { data } = await api.post<ChatResponse>('/chat', {
+    topic_id: topicId,
+    question,
+    access_token: accessToken,
+  })
+  return data
+}
