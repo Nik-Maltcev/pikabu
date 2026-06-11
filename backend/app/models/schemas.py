@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # --- Report sub-models ---
@@ -38,6 +38,24 @@ class TrendingDiscussion(BaseModel):
 # --- Niche search sub-models ---
 
 
+class Risk(BaseModel):
+    """A structured risk assessment for a business idea."""
+
+    category: str  # "Market Risk" | "Product Risk" | "Customer Risk" | "Execution Risk" | "Financial Risk"
+    description: str  # 1-3 sentences specific to the idea
+    mitigation: str  # 1-2 sentences actionable step
+
+
+class Analogue(BaseModel):
+    """An analogous business found via competitor lookup."""
+
+    company_name: str
+    description: str  # max 200 chars
+    annual_revenue: str | None = None  # e.g., "$2M/год" or "~150 млн ₽/год"
+    investment_round: str | None = None  # e.g., "Series A — $5M"
+    has_ru_competitor: bool | None = None  # competitors exist in Russia
+
+
 class KeyPain(BaseModel):
     """A key user pain point with frequency and emotional charge."""
 
@@ -67,10 +85,27 @@ class BusinessIdea(BaseModel):
     demand_level: str = ""  # "Высокий" / "Средний" / "Низкий" — shown free
     competition_level: str = ""  # "Высокая" / "Средняя" / "Низкая" — shown free
     launch_recommendations: list[str] = []  # paid
-    risks: list[str] = []  # paid
+    risks: list[Risk] = []  # paid — validator handles backward compat with old str format
     positioning: str = ""  # paid
     search_queries: list[str] = []  # paid
     entry_difficulty: str = ""  # "Легко" / "Средне" / "Сложно" — paid
+    analogues: list[Analogue] = []  # NEW: analogous businesses
+
+    @field_validator("risks", mode="before")
+    @classmethod
+    def _coerce_risks(cls, v: list) -> list:
+        """Support backward compatibility: convert plain strings to Risk objects."""
+        result = []
+        for item in v:
+            if isinstance(item, str):
+                result.append(Risk(category="Execution Risk", description=item, mitigation=""))
+            elif isinstance(item, dict):
+                # Already a Risk dict — pass through for Pydantic to validate
+                result.append(item)
+            else:
+                # Already a Risk instance or something Pydantic can handle
+                result.append(item)
+        return result
 
 
 class MarketTrend(BaseModel):
@@ -79,6 +114,9 @@ class MarketTrend(BaseModel):
     name: str
     description: str
     monetization_hint: str
+    market_volume_estimate: str | None = None  # e.g., "~2.5 млрд ₽"
+    growth_rate_percent: float | None = None  # YoY real growth after inflation
+    data_source_label: str | None = None  # "Оценка ИИ (реальные данные недоступны)" or None
 
 
 class NicheReport(BaseModel):
@@ -180,6 +218,8 @@ class Report(BaseModel):
     sources: str = "pikabu"
     analysis_mode: str = "topic_analysis"
     niche_data: NicheReport | None = None
+    posts_count: int = 0
+    comments_count: int = 0
 
 
 class ReportListResponse(BaseModel):

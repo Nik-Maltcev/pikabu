@@ -185,6 +185,8 @@ class Report(Base):
     analysis_mode = Column(String(30), nullable=False, default="topic_analysis")
     niche_data = Column(JSONB, nullable=True)
     user_id = Column(Integer, nullable=True)  # linked user (optional)
+    posts_count = Column(Integer, nullable=False, default=0)
+    comments_count = Column(Integer, nullable=False, default=0)
 
     topic = relationship("Topic", back_populates="reports")
     task = relationship("AnalysisTask", back_populates="reports")

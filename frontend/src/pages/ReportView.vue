@@ -50,6 +50,50 @@ async function onAskChat() {
 
 const isNiche = computed(() => report.value?.analysis_mode === 'niche_search' && report.value?.niche_data)
 
+// Risk category icons mapping
+const RISK_CATEGORY_ICONS: Record<string, string> = {
+  'Market Risk': '📈',
+  'Product Risk': '🛠️',
+  'Customer Risk': '👥',
+  'Execution Risk': '⚡',
+  'Financial Risk': '💰',
+}
+
+function riskCategoryIcon(category: string): string {
+  return RISK_CATEGORY_ICONS[category] || '⚠️'
+}
+
+interface RiskObject {
+  category: string
+  description: string
+  mitigation: string
+}
+
+interface RiskGroup {
+  category: string
+  risks: RiskObject[]
+}
+
+function groupRisksByCategory(risks: RiskObject[]): RiskGroup[] {
+  const groups: Record<string, RiskObject[]> = {}
+  for (const risk of risks) {
+    if (!groups[risk.category]) {
+      groups[risk.category] = []
+    }
+    groups[risk.category].push(risk)
+  }
+  // Preserve the order of first appearance
+  const result: RiskGroup[] = []
+  const seen = new Set<string>()
+  for (const risk of risks) {
+    if (!seen.has(risk.category)) {
+      seen.add(risk.category)
+      result.push({ category: risk.category, risks: groups[risk.category] })
+    }
+  }
+  return result
+}
+
 function frequencyColor(freq: string): string {
   if (freq === 'Массово') return 'rv-freq--mass'
   if (freq === 'Часто') return 'rv-freq--often'
@@ -60,6 +104,16 @@ function frequencyColor(freq: string): string {
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  pikabu: 'Пикабу',
+  habr: 'Хабр',
+  vcru: 'VC.ru',
+}
+
+function formatSources(sources: string): string {
+  return sources.split(',').map(s => SOURCE_LABELS[s.trim()] || s.trim()).join(', ')
 }
 
 async function loadReport() {
@@ -143,12 +197,13 @@ onMounted(loadReport)
       <!-- ===== NICHE SEARCH REPORT ===== -->
       <template v-if="isNiche && report.niche_data">
 
-        <!-- Key Pains (first FREE_PAINS free) -->
+        <!-- Key Pains & Mention Rating — two visually distinct blocks -->
         <section class="rv-section">
-          <div class="rv-pains-grid">
-            <!-- Left: Top Pains -->
-            <div>
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_1px_1fr] gap-6 lg:gap-0">
+            <!-- Left: Key Pains Section -->
+            <div class="bg-emerald-50 rounded-2xl p-6 lg:rounded-r-none">
               <h2 class="rv-section-title">🔥 ТОП Ключевых болей</h2>
+              <p class="text-sm text-gray-500 -mt-3 mb-4 pl-4">Формулировки проблем с цитатами</p>
               <div v-if="report.niche_data.key_pains.length === 0" class="rv-empty">Нет данных</div>
               <ul v-else class="rv-list">
                 <li v-for="(pain, i) in report.niche_data.key_pains" :key="i" class="rv-card" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
@@ -168,9 +223,12 @@ onMounted(loadReport)
                 </li>
               </ul>
             </div>
-            <!-- Right: Mentions Rating -->
-            <div>
+            <!-- Vertical divider (visible only at lg+) -->
+            <div class="hidden lg:block bg-gray-300"></div>
+            <!-- Right: Mention Rating Section -->
+            <div class="bg-slate-50 rounded-2xl p-6 lg:rounded-l-none">
               <h2 class="rv-section-title">📊 Рейтинг упоминаний</h2>
+              <p class="text-sm text-gray-500 -mt-3 mb-4 pl-4">Количественная частота упоминаний</p>
               <div v-if="report.niche_data.key_pains.length === 0" class="rv-empty">Нет данных</div>
               <div v-else class="rv-mentions-list">
                 <div v-for="(pain, i) in report.niche_data.key_pains" :key="'m'+i" class="rv-mention-row" :class="{ 'rv-blurred': !isPaid && i >= FREE_PAINS }">
@@ -226,17 +284,76 @@ onMounted(loadReport)
                 <p class="rv-card-desc">{{ idea.description }}</p>
                 <!-- Paid-only fields -->
                 <template v-if="isPaid">
+                  <!-- Analogues sub-block -->
+                  <div class="mt-4 mb-4">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3">🏢 Аналоги на рынке</h4>
+                    <!-- Error state: analogues is undefined/null -->
+                    <p v-if="idea.analogues === undefined || idea.analogues === null" class="text-sm text-gray-500 italic">
+                      Данные об аналогах временно недоступны
+                    </p>
+                    <!-- Empty state: analogues array is empty -->
+                    <p v-else-if="idea.analogues.length === 0" class="text-sm text-emerald-600 font-medium">
+                      Аналоги не найдены — рынок может быть незанят
+                    </p>
+                    <!-- Analogues data -->
+                    <div v-else class="flex flex-col gap-3">
+                      <div
+                        v-for="(analogue, ai) in idea.analogues"
+                        :key="ai"
+                        class="rounded-lg border border-gray-100 bg-gray-50 p-3"
+                      >
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-sm text-gray-800">{{ analogue.company_name }}</span>
+                          <span v-if="analogue.has_ru_competitor" class="text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200" title="Есть конкурент в РФ">🇷🇺</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-1">{{ analogue.description }}</p>
+                        <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                          <span v-if="analogue.annual_revenue">💰 {{ analogue.annual_revenue }}</span>
+                          <span v-if="analogue.investment_round">📈 Раунд: {{ analogue.investment_round }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Horizontal divider separating analogues from MVP plan (16px margin) -->
+                  <hr class="border-t border-gray-200 my-4" />
+
                   <div class="rv-mvp">
                     <span class="rv-mvp-label">🚀 MVP за выходные:</span>
                     <p class="rv-mvp-text">{{ idea.mvp_plan }}</p>
                   </div>
                   <div v-if="idea.launch_recommendations?.length" class="rv-detail-block">
                     <span class="rv-detail-label">📋 Рекомендации по запуску:</span>
-                    <ul class="rv-detail-list"><li v-for="(r, j) in idea.launch_recommendations" :key="j">{{ r }}</li></ul>
+                    <ol class="rv-recommendations-list">
+                      <li v-for="(r, j) in idea.launch_recommendations" :key="j" class="rv-recommendation-item">
+                        <span class="rv-recommendation-number">{{ j + 1 }}</span>
+                        <span class="rv-recommendation-text">
+                          <span v-if="r.match(/^За\s+\d+\s+(дней|недель|день|дня|неделю|недели):/)" class="rv-recommendation-timeframe">{{ r.match(/^(За\s+\d+\s+(?:дней|недель|день|дня|неделю|недели):)/)?.[1] }}</span>
+                          <span>{{ r.match(/^За\s+\d+\s+(?:дней|недель|день|дня|неделю|недели):\s*(.*)$/)?.[1] || r }}</span>
+                        </span>
+                      </li>
+                    </ol>
                   </div>
-                  <div v-if="idea.risks?.length" class="rv-detail-block">
+                  <div v-if="idea.risks?.length" class="rv-risks-section">
                     <span class="rv-detail-label">⚠️ Риски:</span>
-                    <ul class="rv-detail-list"><li v-for="(r, j) in idea.risks" :key="j">{{ r }}</li></ul>
+                    <!-- Structured risks (Risk objects grouped by category) -->
+                    <template v-if="typeof idea.risks[0] === 'object' && idea.risks[0] !== null && 'category' in idea.risks[0]">
+                      <div v-for="(group, gIdx) in groupRisksByCategory(idea.risks)" :key="gIdx" class="rv-risk-group">
+                        <h4 class="rv-risk-category-heading">
+                          <span class="rv-risk-category-icon">{{ riskCategoryIcon(group.category) }}</span>
+                          {{ group.category }}
+                        </h4>
+                        <ul class="rv-risk-list">
+                          <li v-for="(risk, rIdx) in group.risks" :key="rIdx" class="rv-risk-item">
+                            <p class="rv-risk-description">{{ risk.description }}</p>
+                            <p class="rv-risk-mitigation"><span class="rv-risk-mitigation-label">Митигация:</span> {{ risk.mitigation }}</p>
+                          </li>
+                        </ul>
+                      </div>
+                    </template>
+                    <!-- Backward compatibility: plain string risks (old format) -->
+                    <template v-else>
+                      <ul class="rv-detail-list"><li v-for="(r, j) in idea.risks" :key="j">{{ r }}</li></ul>
+                    </template>
                   </div>
                   <div v-if="idea.positioning" class="rv-detail-block">
                     <span class="rv-detail-label">🎯 Позиционирование:</span>
@@ -263,8 +380,14 @@ onMounted(loadReport)
             <div v-if="report.niche_data.market_trends.length === 0" class="rv-empty">Нет данных</div>
             <ul v-else class="rv-list">
               <li v-for="(trend, i) in report.niche_data.market_trends" :key="i" class="rv-card">
-                <div class="rv-card-header"><span class="rv-card-name">{{ trend.name }}</span></div>
+                <div class="rv-card-header">
+                  <span class="rv-card-name">{{ trend.name }}</span>
+                  <span v-if="trend.data_source_label" class="rv-badge-ai">ИИ-оценка</span>
+                </div>
                 <p class="rv-card-desc">{{ trend.description }}</p>
+                <p v-if="trend.market_volume_estimate && trend.growth_rate_percent != null" class="rv-market-data">
+                  📈 Объём рынка: ~{{ trend.market_volume_estimate }}, Рост: +{{ trend.growth_rate_percent }}% г/г с учётом инфляции
+                </p>
                 <p class="rv-monetization">💰 {{ trend.monetization_hint }}</p>
               </li>
             </ul>
@@ -302,6 +425,18 @@ onMounted(loadReport)
         <!-- Chat Widget (paid only) -->
         <section v-if="isPaid" class="rv-section">
           <h2 class="rv-section-title">💬 Спросить у ИИ</h2>
+          <!-- Context: sources and data volume -->
+          <div class="rv-chat-context">
+            <span class="rv-chat-context-item" v-if="report.posts_count">
+              📄 {{ report.posts_count.toLocaleString('ru-RU') }} постов
+            </span>
+            <span class="rv-chat-context-item" v-if="report.comments_count">
+              💬 {{ report.comments_count.toLocaleString('ru-RU') }} комментариев
+            </span>
+            <span class="rv-chat-context-item" v-if="report.sources">
+              🌐 {{ formatSources(report.sources) }}
+            </span>
+          </div>
           <p class="rv-chat-hint">Задайте вопрос по собранным данным ({{ chatRemaining }} из 3 вопросов осталось)</p>
           <div class="rv-chat-box">
             <div v-for="(msg, i) in chatMessages" :key="i" class="rv-chat-msg" :class="msg.role === 'user' ? 'rv-chat-msg--user' : 'rv-chat-msg--ai'">
@@ -310,7 +445,7 @@ onMounted(loadReport)
             </div>
           </div>
           <div v-if="chatRemaining > 0" class="rv-chat-input-row">
-            <input v-model="chatInput" type="text" class="rv-chat-input" placeholder="Задайте вопрос..." @keyup.enter="onAskChat" />
+            <input v-model="chatInput" type="text" class="rv-chat-input" placeholder="Например: какие боли чаще всего упоминают в комментариях?" @keyup.enter="onAskChat" />
             <button class="rv-chat-send" :disabled="chatLoading || !chatInput.trim()" @click="onAskChat">
               {{ chatLoading ? '...' : '→' }}
             </button>
@@ -402,6 +537,8 @@ onMounted(loadReport)
 .rv-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .rv-tag { font-size: 12px; padding: 5px 12px; border-radius: 20px; background: var(--accent-bg); color: var(--accent); font-weight: 500; }
 
+.rv-badge-ai { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #fef9c3; color: #854d0e; font-weight: 600; white-space: nowrap; }
+.rv-market-data { margin: 8px 0 0; font-size: 14px; color: #1d4ed8; background: #eff6ff; padding: 8px 12px; border-radius: 8px; font-weight: 500; }
 .rv-monetization { margin: 8px 0 0; font-size: 14px; color: #059669; font-style: italic; background: #ecfdf5; padding: 8px 12px; border-radius: 8px; }
 .rv-empty { text-align: center; color: var(--text); font-size: 15px; padding: 32px; border: 2px dashed var(--border); border-radius: 12px; background: #f9fafb; }
 .rv-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 12px; padding: 16px 20px; font-size: 14px; }
@@ -442,6 +579,8 @@ onMounted(loadReport)
 .rv-freq--mass { color: #dc2626; background: #fef2f2; font-weight: 600; }
 
 /* Chat widget */
+.rv-chat-context { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; padding: 10px 14px; background: #f0f9ff; border-radius: 10px; border: 1px solid #bae6fd; }
+.rv-chat-context-item { font-size: 13px; color: #0369a1; font-weight: 500; }
 .rv-chat-hint { font-size: 14px; color: var(--text); margin: 0 0 12px; }
 .rv-chat-box { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; padding: 12px; background: #f9fafb; border-radius: 12px; border: 1px solid var(--border); }
 .rv-chat-msg { padding: 10px 14px; border-radius: 10px; max-width: 85%; }
@@ -460,9 +599,27 @@ onMounted(loadReport)
 .rv-freq--periodic { color: #2563eb; background: #eff6ff; font-weight: 600; }
 .rv-freq--rare { color: #6b7280; background: #f3f4f6; }
 
-/* Two-column pains layout */
-.rv-pains-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
-@media (min-width: 1024px) { .rv-pains-grid { grid-template-columns: 1fr 1fr; gap: 40px; } }
+/* Structured Risks section */
+.rv-risks-section { margin-top: 12px; }
+.rv-risk-group { margin-top: 14px; padding: 12px 16px; background: #f9fafb; border-radius: 10px; border: 1px solid var(--border); }
+.rv-risk-group + .rv-risk-group { margin-top: 10px; }
+.rv-risk-category-heading { font-size: 14px; font-weight: 700; color: var(--text-h); margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+.rv-risk-category-icon { font-size: 16px; }
+.rv-risk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rv-risk-item { padding: 10px 14px; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; }
+.rv-risk-description { margin: 0 0 6px; font-size: 14px; color: var(--text); line-height: 1.6; }
+.rv-risk-mitigation { margin: 0; font-size: 13px; color: #059669; line-height: 1.5; }
+.rv-risk-mitigation-label { font-weight: 600; color: #047857; }
+
+/* Recommendations numbered list */
+.rv-recommendations-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: none; }
+.rv-recommendation-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; background: #f9fafb; border-radius: 10px; border: 1px solid var(--border); transition: background 0.2s; }
+.rv-recommendation-item:hover { background: #f0fdf4; }
+.rv-recommendation-number { display: flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.rv-recommendation-text { font-size: 14px; color: var(--text); line-height: 1.6; }
+.rv-recommendation-timeframe { font-weight: 700; color: #2563eb; margin-right: 4px; }
+
+/* Two-column pains layout — now handled by Tailwind grid utilities in template */
 
 .rv-mentions-list { display: flex; flex-direction: column; gap: 14px; }
 .rv-mention-row { display: flex; align-items: center; gap: 12px; }

@@ -69,6 +69,17 @@ class Settings(BaseSettings):
     # Gemini API
     gemini_max_retries: int = 3
 
+    # Market Data enrichment
+    serpapi_key: str = ""  # SerpAPI key for Google Trends data
+    inflation_rate_percent: float = 9.5  # CBR official rate, updated periodically
+
+    # Competitor Lookup
+    linkup_api_key: str = ""  # Linkup API key for competitor search
+
+    # Enrichment timeouts
+    enrichment_total_timeout: float = 30.0  # Total budget for all enrichment
+    enrichment_per_source_timeout: float = 10.0  # Per-source request timeout
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

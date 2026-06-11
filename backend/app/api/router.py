@@ -68,6 +68,8 @@ def _report_to_schema(r: DBReport) -> Report:
         sources=r.sources,
         analysis_mode=r.analysis_mode or "topic_analysis",
         niche_data=niche,
+        posts_count=r.posts_count or 0,
+        comments_count=r.comments_count or 0,
     )
 
 
@@ -775,7 +777,14 @@ async def _run_analysis_background(
                 )
                 await session.commit()
 
-                report_data = await analyzer.hierarchical_aggregate(partial_results, analysis_mode=analysis_mode)
+                if analysis_mode == "niche_search":
+                    report_data = await analyzer.aggregate_and_enrich(
+                        partial_results,
+                        source_posts=posts_data,
+                        analysis_mode=analysis_mode,
+                    )
+                else:
+                    report_data = await analyzer.hierarchical_aggregate(partial_results, analysis_mode=analysis_mode)
 
                 # Save report
                 if analysis_mode == "niche_search":
@@ -795,6 +804,8 @@ async def _run_analysis_background(
                         analysis_mode="niche_search",
                         generated_at=datetime.now(timezone.utc),
                         sources=sources_label,
+                        posts_count=len(posts_data),
+                        comments_count=sum(len(p.get("comments", [])) for p in posts_data),
                     )
                 else:
                     hot_topics = report_data.get("hot_topics", [])
@@ -810,6 +821,8 @@ async def _run_analysis_background(
                         analysis_mode="topic_analysis",
                         generated_at=datetime.now(timezone.utc),
                         sources=sources_label,
+                        posts_count=len(posts_data),
+                        comments_count=sum(len(p.get("comments", [])) for p in posts_data),
                     )
                 session.add(db_report)
                 await session.commit()

@@ -10,11 +10,14 @@ from app.models.schemas import (
     AnalysisStartRequest,
     AnalysisStartResponse,
     AnalysisStatusResponse,
+    BusinessIdea,
     Chunk,
     HotTopic,
+    NicheReport,
     PartialResult,
     Report,
     ReportListResponse,
+    Risk,
     Topic,
     TopicListResponse,
     TrendingDiscussion,
@@ -279,3 +282,105 @@ class TestJsonRoundTrip:
         data = pr.model_dump(mode="json")
         restored = PartialResult.model_validate(data)
         assert restored == pr
+
+
+# --- Backward Compatibility: old reports with risks as strings ---
+
+
+class TestBackwardCompatRisks:
+    """Ensure old reports where risks was list[str] still deserialize."""
+
+    def test_risks_as_plain_strings(self):
+        """Old-format risks (plain strings) should be coerced to Risk objects."""
+        idea = BusinessIdea(
+            name="Test Idea",
+            description="Some idea",
+            mvp_plan="Build something",
+            risks=["Risk one", "Risk two", "Risk three"],
+        )
+        assert len(idea.risks) == 3
+        assert all(isinstance(r, Risk) for r in idea.risks)
+        # Coerced strings get default category "Execution Risk"
+        assert idea.risks[0].category == "Execution Risk"
+        assert idea.risks[0].description == "Risk one"
+        assert idea.risks[0].mitigation == ""
+
+    def test_risks_as_risk_objects(self):
+        """New-format risks (Risk dicts) should work normally."""
+        idea = BusinessIdea(
+            name="Test Idea",
+            description="Some idea",
+            mvp_plan="Build something",
+            risks=[
+                {"category": "Market Risk", "description": "Market too small", "mitigation": "Expand scope"},
+                {"category": "Product Risk", "description": "No PMF", "mitigation": "Run custdev"},
+            ],
+        )
+        assert len(idea.risks) == 2
+        assert idea.risks[0].category == "Market Risk"
+        assert idea.risks[1].category == "Product Risk"
+
+    def test_risks_empty_list(self):
+        """Empty risks list should work fine."""
+        idea = BusinessIdea(
+            name="Test Idea",
+            description="Some idea",
+            mvp_plan="Build something",
+            risks=[],
+        )
+        assert idea.risks == []
+
+    def test_risks_mixed_format(self):
+        """Mix of old strings and new Risk dicts should work."""
+        idea = BusinessIdea(
+            name="Test Idea",
+            description="Some idea",
+            mvp_plan="Build something",
+            risks=[
+                "Old string risk",
+                {"category": "Financial Risk", "description": "Unit economics", "mitigation": "Calculate CAC"},
+            ],
+        )
+        assert len(idea.risks) == 2
+        assert idea.risks[0].category == "Execution Risk"  # coerced
+        assert idea.risks[1].category == "Financial Risk"
+
+    def test_old_niche_report_deserialization(self):
+        """Old niche_data JSON (risks as strings, no analogues) should deserialize."""
+        old_niche_data = {
+            "key_pains": [
+                {
+                    "description": "Test pain",
+                    "frequency": "Часто",
+                    "emotional_charge": "Высокий",
+                    "mentions_count": 5,
+                    "examples": ["quote 1"],
+                }
+            ],
+            "jtbd_analyses": [],
+            "business_ideas": [
+                {
+                    "name": "Old Idea",
+                    "description": "An old idea",
+                    "mvp_plan": "Do stuff",
+                    "risks": ["Risk A", "Risk B", "Risk C"],
+                    # No analogues field at all
+                }
+            ],
+            "market_trends": [
+                {
+                    "name": "Trend",
+                    "description": "A trend",
+                    "monetization_hint": "Sell stuff",
+                    # No market_volume_estimate, growth_rate_percent, data_source_label
+                }
+            ],
+        }
+        niche = NicheReport(**old_niche_data)
+        assert len(niche.business_ideas) == 1
+        assert len(niche.business_ideas[0].risks) == 3
+        assert all(isinstance(r, Risk) for r in niche.business_ideas[0].risks)
+        assert niche.business_ideas[0].analogues == []  # default
+        assert niche.market_trends[0].market_volume_estimate is None  # default
+        assert niche.market_trends[0].growth_rate_percent is None  # default
+        assert niche.market_trends[0].data_source_label is None  # default

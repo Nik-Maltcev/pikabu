@@ -37,6 +37,20 @@ export interface JTBDAnalysis {
   current_solution: string
 }
 
+export interface Risk {
+  category: string  // "Market Risk" | "Product Risk" | "Customer Risk" | "Execution Risk" | "Financial Risk"
+  description: string
+  mitigation: string
+}
+
+export interface Analogue {
+  company_name: string
+  description: string
+  annual_revenue?: string | null
+  investment_round?: string | null
+  has_ru_competitor?: boolean | null
+}
+
 export interface BusinessIdea {
   name: string
   description: string
@@ -44,16 +58,20 @@ export interface BusinessIdea {
   demand_level?: string
   competition_level?: string
   launch_recommendations?: string[]
-  risks?: string[]
+  risks?: Risk[]
   positioning?: string
   search_queries?: string[]
   entry_difficulty?: string
+  analogues?: Analogue[]
 }
 
 export interface MarketTrend {
   name: string
   description: string
   monetization_hint: string
+  market_volume_estimate?: string | null
+  growth_rate_percent?: number | null
+  data_source_label?: string | null
 }
 
 export interface NicheReport {
@@ -121,6 +139,8 @@ export interface Report {
   sources?: string
   analysis_mode?: string
   niche_data?: NicheReport | null
+  posts_count?: number
+  comments_count?: number
 }
 
 export interface ReportListResponse {

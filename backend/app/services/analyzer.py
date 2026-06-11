@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 
 import httpx
 
@@ -17,10 +18,14 @@ from app.models.schemas import (
     NichePartialResult,
     NicheReport,
     PartialResult,
+    Risk,
     TrendingDiscussion,
     UserProblem,
 )
 from app.services.chunker import estimate_tokens
+from app.services.competitor_lookup import CompetitorLookupService
+from app.services.market_data import MarketDataService
+from app.services.mentions_validator import MentionsValidator
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +239,7 @@ NICHE_CHUNK_PROMPT = """\
   ]
 }
 
-ВАЖНО: mentions_count — это примерное количество постов/комментариев в данных, где упоминается эта боль. Считай реальные упоминания.
+ВАЖНО: mentions_count — это примерное количество постов/комментариев в данных, где упоминается эта боль. Считай реальные упоминания. Значение mentions_count ОБЯЗАТЕЛЬНО должно быть >= 1 для каждой боли (если ты нашёл боль, значит как минимум 1 пост о ней говорит).
 
 Данные для анализа:
 """
@@ -248,7 +253,8 @@ NICHE_AGGREGATION_PROMPT = """\
 Инструкции:
 
 1. **ТОП-5 Ключевых болей** — объедини похожие боли, выбери 5 самых частых и острых. \
-Для каждой укажи description (от первого лица), frequency, emotional_charge, examples (до 3).
+Для каждой укажи description (от первого лица), frequency, emotional_charge, examples (до 3). \
+При объединении похожих болей суммируй их mentions_count из разных чанков.
 
 2. **JTBD-Анализ** — выбери 3 самые перспективные боли и разложи по структуре: \
 pain_description, situational (контекст), functional (функциональная задача), \
@@ -261,11 +267,48 @@ emotional (эмоциональная задача), current_solution (теку�
    - mvp_plan: что сделать за 2 выходных без программирования для проверки спроса
    - demand_level: уровень спроса ("Высокий", "Средний" или "Низкий")
    - competition_level: уровень конкуренции ("Высокая", "Средняя" или "Низкая")
-   - launch_recommendations: список из 3-5 конкретных шагов для запуска
-   - risks: список из 2-4 ключевых рисков
+   - launch_recommendations: список из 5-7 конкретных шагов для запуска (формат ниже)
+   - risks: список из 3-6 структурированных рисков (формат ниже)
    - positioning: идея позиционирования (1-2 предложения, как отстроиться от конкурентов)
    - search_queries: 3-5 ключевых поисковых запросов, по которым ищут решение этой проблемы
    - entry_difficulty: оценка сложности входа ("Легко", "Средне" или "Сложно")
+
+   **Формат risks (3-6 штук на каждую идею):**
+   Каждый риск — объект с тремя полями:
+   - category: СТРОГО одна из 5 категорий: "Market Risk", "Product Risk", "Customer Risk", "Execution Risk", "Financial Risk"
+   - description: 1-3 предложения, описывающие конкретный риск для этой идеи. \
+Каждое описание должно ссылаться на непроверенное допущение о problem-solution fit \
+или на гипотезу build-measure-learn, которая может опровергнуть жизнеспособность идеи.
+   - mitigation: 1-2 предложения с конкретным действием для снижения риска
+
+   Категории рисков:
+   - "Market Risk" — рынок не существует или слишком мал
+   - "Product Risk" — продукт не решает реальную проблему
+   - "Customer Risk" — целевой сегмент неверно определён
+   - "Execution Risk" — команда/ресурсы недостаточны для реализации
+   - "Financial Risk" — unit-экономика не сходится
+
+   Обязательно: минимум 2 разные категории среди рисков для каждой идеи.
+
+   **Формат launch_recommendations (5-7 штук на каждую идею):**
+   Каждая рекомендация — строка с обязательным префиксом временных рамок: \
+"За N дней:" или "За N недель:" (N — положительное целое число). \
+После префикса — глагол действия, конкретный результат и обязательно \
+хотя бы один именованный инструмент/платформу/канал российского рынка \
+(например: "Tilda", "Telegram-бот", "Яндекс.Директ", "Avito", "VK", \
+"Notion", "Google Forms", "WhatsApp", "HeadHunter", "Юла", "2ГИС").
+
+   Рекомендации ОБЯЗАТЕЛЬНО расположены в порядке возрастания временных рамок \
+(сначала ближайшие шаги, потом долгосрочные).
+
+   Рекомендации должны покрывать 5 этапов запуска:
+   1. Валидация спроса (custdev, опросы)
+   2. Создание MVP (лендинг, прототип)
+   3. Привлечение первых пользователей (каналы, реклама)
+   4. Тест монетизации (первые продажи, unit-экономика)
+   5. Решение о масштабировании (метрики, рост)
+
+   Каждый этап должен быть представлен хотя бы одной рекомендацией.
 
 4. **Тренды и рыночный контекст** — укажи 2-3 технологических или социальных тренда, \
 которые усиливают эти проблемы. Для каждого: name, description, monetization_hint.
@@ -291,8 +334,14 @@ emotional (эмоциональная задача), current_solution (теку�
       "mvp_plan": "...",
       "demand_level": "...",
       "competition_level": "...",
-      "launch_recommendations": ["...", "..."],
-      "risks": ["...", "..."],
+      "launch_recommendations": [
+        "За 3 дня: провести 10 custdev-интервью через Telegram-чаты целевой аудитории",
+        "За 2 недели: создать лендинг на Tilda с формой предзаказа"
+      ],
+      "risks": [
+        {"category": "Market Risk", "description": "...", "mitigation": "..."},
+        {"category": "Product Risk", "description": "...", "mitigation": "..."}
+      ],
       "positioning": "...",
       "search_queries": ["...", "..."],
       "entry_difficulty": "..."
@@ -560,3 +609,225 @@ class AnalyzerService:
                 return await self.hierarchical_aggregate(intermediate_results, analysis_mode=analysis_mode, max_group_size=max_group_size)
 
         return await self.aggregate_results(intermediate_results, analysis_mode=analysis_mode)
+
+    # ------------------------------------------------------------------
+    # Post-aggregation pipeline: validate + enrich
+    # ------------------------------------------------------------------
+
+    # Allowed risk categories per the startup framework
+    ALLOWED_RISK_CATEGORIES: list[str] = [
+        "Market Risk",
+        "Product Risk",
+        "Customer Risk",
+        "Execution Risk",
+        "Financial Risk",
+    ]
+
+    # Pattern for recommendation timeframe prefix
+    _RECOMMENDATION_TIMEFRAME_RE = re.compile(r"^За \d+ (дней|недель):")
+
+    async def aggregate_and_enrich(
+        self,
+        results,
+        source_posts: list[dict],
+        analysis_mode: str = "topic_analysis",
+    ) -> dict:
+        """Aggregate partial results, validate, and enrich with external data.
+
+        Pipeline for niche_search mode:
+        1. Hierarchical LLM aggregation
+        2. MentionsValidator: fix mentions_count in key_pains
+        3. Validate risks (count 3-6, valid categories) and recommendations (count 5-7, timeframe prefix)
+        4. Parallel enrichment: MarketDataService + CompetitorLookupService
+
+        Args:
+            results: List of NichePartialResult or PartialResult objects.
+            source_posts: Original posts data for keyword recount.
+            analysis_mode: "niche_search" or "topic_analysis".
+
+        Returns:
+            Validated and enriched report dict.
+        """
+        report = await self.hierarchical_aggregate(results, analysis_mode=analysis_mode)
+
+        if analysis_mode != "niche_search":
+            return report
+
+        # Step 1: Validate mentions_count
+        validator = MentionsValidator()
+        report["key_pains"] = validator.validate_and_fix(report["key_pains"], source_posts)
+
+        # Step 2: Validate risks and recommendations for each business idea
+        report["business_ideas"] = await self._validate_business_ideas(report["business_ideas"])
+
+        # Step 3: Enrich in parallel (market trends + competitor analogues)
+        try:
+            market_svc = MarketDataService()
+            competitor_svc = CompetitorLookupService()
+
+            enriched_trends, enriched_ideas = await asyncio.gather(
+                market_svc.enrich_trends(report["market_trends"]),
+                competitor_svc.find_analogues(report["business_ideas"]),
+            )
+            report["market_trends"] = enriched_trends
+            report["business_ideas"] = enriched_ideas
+        except Exception as exc:
+            # Graceful degradation: if enrichment fails entirely, keep LLM-only data
+            logger.warning("Enrichment failed, using LLM-only data: %s", exc)
+
+        return report
+
+    async def _validate_business_ideas(self, ideas: list[BusinessIdea]) -> list[BusinessIdea]:
+        """Validate risks and recommendations for each business idea.
+
+        For each idea:
+        - Validate risk categories (map invalid to "Execution Risk")
+        - Validate risks count (3-6): re-prompt once, then trim/pad
+        - Validate recommendation timeframe prefix (prepend default if missing)
+        - Validate recommendations count (5-7): re-prompt once, then trim/pad
+        """
+        validated: list[BusinessIdea] = []
+        for idea in ideas:
+            idea = self._validate_risk_categories(idea)
+            idea = await self._validate_risks_count(idea)
+            idea = self._validate_recommendation_prefixes(idea)
+            idea = await self._validate_recommendations_count(idea)
+            validated.append(idea)
+        return validated
+
+    def _validate_risk_categories(self, idea: BusinessIdea) -> BusinessIdea:
+        """Ensure all risk categories are from the allowed set.
+
+        Invalid categories are mapped to "Execution Risk" as default.
+        """
+        fixed_risks: list[Risk] = []
+        for risk in idea.risks:
+            if risk.category not in self.ALLOWED_RISK_CATEGORIES:
+                logger.warning(
+                    "Invalid risk category '%s' for idea '%s', mapping to 'Execution Risk'",
+                    risk.category, idea.name,
+                )
+                risk = Risk(
+                    category="Execution Risk",
+                    description=risk.description,
+                    mitigation=risk.mitigation,
+                )
+            fixed_risks.append(risk)
+        idea.risks = fixed_risks
+        return idea
+
+    async def _validate_risks_count(self, idea: BusinessIdea) -> BusinessIdea:
+        """Validate that each idea has 3-6 risks.
+
+        If out of range: re-prompt LLM once, then trim/pad as fallback.
+        """
+        count = len(idea.risks)
+        if 3 <= count <= 6:
+            return idea
+
+        # Try re-prompting LLM once
+        try:
+            new_risks = await self._reprompt_risks(idea)
+            if 3 <= len(new_risks) <= 6:
+                idea.risks = new_risks
+                return idea
+        except Exception as exc:
+            logger.warning("Re-prompt for risks failed for idea '%s': %s", idea.name, exc)
+
+        # Fallback: trim or keep as-is
+        if len(idea.risks) > 6:
+            idea.risks = idea.risks[:6]
+        # If < 3, keep as-is (minimum 1 risk is acceptable as absolute fallback)
+
+        return idea
+
+    async def _reprompt_risks(self, idea: BusinessIdea) -> list[Risk]:
+        """Re-prompt LLM to generate exactly 3-6 risks for an idea."""
+        prompt = (
+            f"Для бизнес-идеи \"{idea.name}\" ({idea.description}) "
+            f"сгенерируй ровно от 3 до 6 структурированных рисков.\n\n"
+            f"Каждый риск — объект с тремя полями:\n"
+            f"- category: СТРОГО одна из: \"Market Risk\", \"Product Risk\", "
+            f"\"Customer Risk\", \"Execution Risk\", \"Financial Risk\"\n"
+            f"- description: 1-3 предложения, описывающие конкретный риск\n"
+            f"- mitigation: 1-2 предложения с действием для снижения риска\n\n"
+            f"Обязательно: минимум 2 разные категории.\n\n"
+            f"Верни JSON-массив (без markdown, без лишнего текста):\n"
+            f'[{{"category": "...", "description": "...", "mitigation": "..."}}]'
+        )
+        text = await self._call_llm(prompt, max_tokens=2048)
+        text = _strip_markdown_fences(text)
+        text = _repair_truncated_json(text)
+        data = json.loads(text)
+        if isinstance(data, list):
+            return [Risk(**r) for r in data]
+        # If wrapped in an object, try to extract
+        if isinstance(data, dict) and "risks" in data:
+            return [Risk(**r) for r in data["risks"]]
+        return []
+
+    def _validate_recommendation_prefixes(self, idea: BusinessIdea) -> BusinessIdea:
+        """Ensure all recommendations have a timeframe prefix.
+
+        If missing, prepend "За 7 дней: " as default.
+        """
+        fixed_recs: list[str] = []
+        for rec in idea.launch_recommendations:
+            if not self._RECOMMENDATION_TIMEFRAME_RE.match(rec):
+                logger.warning(
+                    "Recommendation missing timeframe prefix for idea '%s', prepending default",
+                    idea.name,
+                )
+                rec = f"За 7 дней: {rec}"
+            fixed_recs.append(rec)
+        idea.launch_recommendations = fixed_recs
+        return idea
+
+    async def _validate_recommendations_count(self, idea: BusinessIdea) -> BusinessIdea:
+        """Validate that each idea has 5-7 recommendations.
+
+        If out of range: re-prompt LLM once, then trim/pad as fallback.
+        """
+        count = len(idea.launch_recommendations)
+        if 5 <= count <= 7:
+            return idea
+
+        # Try re-prompting LLM once
+        try:
+            new_recs = await self._reprompt_recommendations(idea)
+            if 5 <= len(new_recs) <= 7:
+                idea.launch_recommendations = new_recs
+                return idea
+        except Exception as exc:
+            logger.warning("Re-prompt for recommendations failed for idea '%s': %s", idea.name, exc)
+
+        # Fallback: trim or keep as-is
+        if len(idea.launch_recommendations) > 7:
+            idea.launch_recommendations = idea.launch_recommendations[:7]
+        # If < 5, keep as-is (whatever the LLM produced is better than nothing)
+
+        return idea
+
+    async def _reprompt_recommendations(self, idea: BusinessIdea) -> list[str]:
+        """Re-prompt LLM to generate exactly 5-7 recommendations for an idea."""
+        prompt = (
+            f"Для бизнес-идеи \"{idea.name}\" ({idea.description}) "
+            f"сгенерируй ровно от 5 до 7 рекомендаций по запуску.\n\n"
+            f"Каждая рекомендация — строка с обязательным префиксом временных рамок: "
+            f"\"За N дней:\" или \"За N недель:\" (N — положительное целое число).\n"
+            f"После префикса — глагол действия, конкретный результат и хотя бы один "
+            f"именованный инструмент/платформу/канал российского рынка.\n\n"
+            f"Рекомендации в порядке возрастания временных рамок.\n"
+            f"Покрой 5 этапов: валидация спроса, MVP, первые пользователи, тест монетизации, масштабирование.\n\n"
+            f"Верни JSON-массив строк (без markdown, без лишнего текста):\n"
+            f'["За 3 дня: ...", "За 7 дней: ...", ...]'
+        )
+        text = await self._call_llm(prompt, max_tokens=2048)
+        text = _strip_markdown_fences(text)
+        text = _repair_truncated_json(text)
+        data = json.loads(text)
+        if isinstance(data, list):
+            return [str(r) for r in data]
+        if isinstance(data, dict) and "launch_recommendations" in data:
+            return [str(r) for r in data["launch_recommendations"]]
+        return []

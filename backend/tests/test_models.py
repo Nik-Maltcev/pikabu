@@ -88,7 +88,7 @@ def test_report_columns():
     assert col_names == {
         "id", "topic_id", "task_id",
         "hot_topics", "user_problems", "trending_discussions", "generated_at", "sources",
-        "analysis_mode", "niche_data", "user_id",
+        "analysis_mode", "niche_data", "user_id", "posts_count", "comments_count",
     }
 
 
