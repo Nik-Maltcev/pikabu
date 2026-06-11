@@ -137,6 +137,78 @@ function goToApp() {
         </div>
       </section>
 
+      <!-- Why BizMap vs ChatGPT -->
+      <section class="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24">
+        <div class="text-center mb-10 md:mb-14">
+          <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-3">Почему BizMap, а не ChatGPT?</h2>
+          <p class="text-[#45464d] max-w-2xl mx-auto">Мы парсим реальные обсуждения живых людей с Пикабу и VC.ru. ChatGPT работает с маркетинговыми статьями и фантазирует.</p>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="max-w-3xl mx-auto overflow-hidden rounded-xl border border-[#c6c6cd] shadow-sm">
+          <table class="w-full text-left text-sm md:text-base">
+            <thead>
+              <tr class="bg-[#f6f3f5]">
+                <th class="p-3 md:p-4 font-semibold text-[#1b1b1d]">Возможность</th>
+                <th class="p-3 md:p-4 font-semibold text-[#006a62] text-center">BizMap</th>
+                <th class="p-3 md:p-4 font-semibold text-[#6b7280] text-center">ChatGPT</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#e5e5e5]">
+              <tr class="bg-white">
+                <td class="p-3 md:p-4">Реальные данные с форумов (50 000+ постов)</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+              <tr class="bg-[#fafafa]">
+                <td class="p-3 md:p-4">Свежие данные (обновление каждые 3 дня)</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+              <tr class="bg-white">
+                <td class="p-3 md:p-4">Цитаты из реальных обсуждений</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+              <tr class="bg-[#fafafa]">
+                <td class="p-3 md:p-4">Количественный рейтинг упоминаний болей</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+              <tr class="bg-white">
+                <td class="p-3 md:p-4">JTBD-анализ на реальных данных</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-yellow-500">~</td>
+              </tr>
+              <tr class="bg-[#fafafa]">
+                <td class="p-3 md:p-4">MVP-план с конкретными инструментами</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-yellow-500">~</td>
+              </tr>
+              <tr class="bg-white">
+                <td class="p-3 md:p-4">Аналоги и конкуренты с выручкой</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+              <tr class="bg-[#fafafa]">
+                <td class="p-3 md:p-4">Работает без промпт-инжиниринга</td>
+                <td class="p-3 md:p-4 text-center text-green-600 font-bold">✓</td>
+                <td class="p-3 md:p-4 text-center text-red-400">✗</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Key differentiator -->
+        <div class="max-w-3xl mx-auto mt-8 bg-gradient-to-r from-[#ecfdf5] to-[#f0f9ff] border border-[#a7f3d0] rounded-xl p-5 md:p-6 flex items-start gap-4">
+          <span class="material-symbols-outlined text-[#006a62] text-3xl shrink-0 mt-0.5">database</span>
+          <div>
+            <h4 class="font-semibold text-[#1b1b1d] mb-1">Данные от живых людей, а не из интернет-статей</h4>
+            <p class="text-sm text-[#45464d] leading-relaxed">BizMap парсит тысячи постов и комментариев с Пикабу и VC.ru — это реальные жалобы, вопросы и потребности аудитории. ChatGPT генерирует ответы из обучающих данных, которые часто устаревшие и лишены контекста.</p>
+          </div>
+        </div>
+      </section>
+
       <!-- Report Example -->
       <section class="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24">
         <div class="text-center mb-10 md:mb-12">
@@ -240,29 +312,29 @@ function goToApp() {
           <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
             <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">speed</span>
             <div>
-              <h3 class="text-lg md:text-xl font-semibold mb-1">Экономия времени</h3>
-              <p class="text-base text-[#45464d]">Вместо недель ручного ресерча — результат за минуты.</p>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">5 минут вместо недель</h3>
+              <p class="text-base text-[#45464d]">Автоматический анализ тысяч обсуждений, на который вручную ушли бы дни.</p>
             </div>
           </div>
           <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
             <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">trending_up</span>
             <div>
-              <h3 class="text-lg md:text-xl font-semibold mb-1">Снижение рисков</h3>
-              <p class="text-base text-[#45464d]">Объективная оценка на основе данных, а не интуиции.</p>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Данные, а не интуиция</h3>
+              <p class="text-base text-[#45464d]">Решения на основе реальных болей живых людей, а не маркетинговых опросов.</p>
             </div>
           </div>
           <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
             <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">insights</span>
             <div>
-              <h3 class="text-lg md:text-xl font-semibold mb-1">Глубокая аналитика</h3>
-              <p class="text-base text-[#45464d]">JTBD-анализ, боли аудитории, тренды и MVP-план.</p>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">От боли до MVP</h3>
+              <p class="text-base text-[#45464d]">Полный путь: боли → JTBD → идея → план запуска. Всё в одном отчёте.</p>
             </div>
           </div>
           <div class="bg-[#fcf8fa] p-[16px] md:p-8 border border-[#c6c6cd] rounded-xl flex items-start gap-4">
             <span class="material-symbols-outlined text-3xl text-[#006a62] shrink-0">update</span>
             <div>
-              <h3 class="text-lg md:text-xl font-semibold mb-1">Свежие данные</h3>
-              <p class="text-base text-[#45464d]">Обновляем базу каждые 3 дня — всегда актуальная картина.</p>
+              <h3 class="text-lg md:text-xl font-semibold mb-1">Всегда свежие данные</h3>
+              <p class="text-base text-[#45464d]">Парсинг каждые 3 дня. Вы видите актуальную картину рынка, а не прошлогоднюю.</p>
             </div>
           </div>
         </div>
