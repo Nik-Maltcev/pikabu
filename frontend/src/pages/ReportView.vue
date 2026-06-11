@@ -30,6 +30,8 @@ const chatLoading = ref(false)
 const chatRemaining = ref(3)
 const chatMessages = ref<{ role: 'user' | 'ai'; text: string }[]>([])
 const chatAccessToken = ref('')
+const chatOpen = ref(false)
+const hasScrolled = ref(false)
 
 async function onAskChat() {
   if (!chatInput.value.trim() || chatLoading.value || chatRemaining.value <= 0) return
@@ -171,7 +173,17 @@ function goBack() {
   router.push({ name: 'reports', params: { topicId: String(topicId) } })
 }
 
-onMounted(loadReport)
+onMounted(() => {
+  loadReport()
+  // Track scroll to hide scroll hint
+  const onScroll = () => {
+    if (window.scrollY > 100) {
+      hasScrolled.value = true
+      window.removeEventListener('scroll', onScroll)
+    }
+  }
+  window.addEventListener('scroll', onScroll)
+})
 </script>
 
 <template>
@@ -422,36 +434,7 @@ onMounted(loadReport)
           </div>
         </section>
 
-        <!-- Chat Widget (paid only) -->
-        <section v-if="isPaid" class="rv-section">
-          <h2 class="rv-section-title">💬 Спросить у ИИ</h2>
-          <!-- Context: sources and data volume -->
-          <div class="rv-chat-context">
-            <span class="rv-chat-context-item" v-if="report.posts_count">
-              📄 {{ report.posts_count.toLocaleString('ru-RU') }} постов
-            </span>
-            <span class="rv-chat-context-item" v-if="report.comments_count">
-              💬 {{ report.comments_count.toLocaleString('ru-RU') }} комментариев
-            </span>
-            <span class="rv-chat-context-item" v-if="report.sources">
-              🌐 {{ formatSources(report.sources) }}
-            </span>
-          </div>
-          <p class="rv-chat-hint">Задайте вопрос по собранным данным ({{ chatRemaining }} из 3 вопросов осталось)</p>
-          <div class="rv-chat-box">
-            <div v-for="(msg, i) in chatMessages" :key="i" class="rv-chat-msg" :class="msg.role === 'user' ? 'rv-chat-msg--user' : 'rv-chat-msg--ai'">
-              <span class="rv-chat-role">{{ msg.role === 'user' ? 'Вы:' : 'ИИ:' }}</span>
-              <p class="rv-chat-text">{{ msg.text }}</p>
-            </div>
-          </div>
-          <div v-if="chatRemaining > 0" class="rv-chat-input-row">
-            <input v-model="chatInput" type="text" class="rv-chat-input" placeholder="Например: какие боли чаще всего упоминают в комментариях?" @keyup.enter="onAskChat" />
-            <button class="rv-chat-send" :disabled="chatLoading || !chatInput.trim()" @click="onAskChat">
-              {{ chatLoading ? '...' : '→' }}
-            </button>
-          </div>
-          <p v-else class="rv-chat-exhausted">Лимит вопросов исчерпан</p>
-        </section>
+        <!-- Chat Widget (paid only) — removed from flow, now rendered as floating widget below -->
 
       </template>
 
@@ -481,6 +464,56 @@ onMounted(loadReport)
         </section>
       </template>
     </template>
+
+    <!-- Scroll hint (visible only on first screen before user scrolls) -->
+    <div v-if="report && !hasScrolled" class="rv-scroll-hint" aria-hidden="true">
+      <span class="rv-scroll-hint-text">Прокрутите вниз для подробностей</span>
+      <svg class="rv-scroll-hint-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </div>
+
+    <!-- Floating Chat Widget (paid only, sticky bottom-right) -->
+    <div v-if="isPaid && report" class="rv-floating-chat" :class="{ 'rv-floating-chat--open': chatOpen }">
+      <!-- Toggle button -->
+      <button class="rv-floating-chat-toggle" @click="chatOpen = !chatOpen" :title="chatOpen ? 'Свернуть чат' : 'Спросить у ИИ'">
+        <span v-if="!chatOpen">💬</span>
+        <span v-else>✕</span>
+      </button>
+      <!-- Chat panel -->
+      <div v-if="chatOpen" class="rv-floating-chat-panel">
+        <div class="rv-floating-chat-header">
+          <h3>💬 Спросить у ИИ</h3>
+          <span class="rv-floating-chat-remaining">{{ chatRemaining }}/3</span>
+        </div>
+        <!-- Context info -->
+        <div class="rv-chat-context">
+          <span class="rv-chat-context-item" v-if="report.posts_count">
+            📄 {{ report.posts_count.toLocaleString('ru-RU') }} постов
+          </span>
+          <span class="rv-chat-context-item" v-if="report.comments_count">
+            💬 {{ report.comments_count.toLocaleString('ru-RU') }} комментариев
+          </span>
+          <span class="rv-chat-context-item" v-if="report.sources">
+            🌐 {{ formatSources(report.sources) }}
+          </span>
+        </div>
+        <!-- Messages -->
+        <div class="rv-floating-chat-messages">
+          <div v-for="(msg, i) in chatMessages" :key="i" class="rv-chat-msg" :class="msg.role === 'user' ? 'rv-chat-msg--user' : 'rv-chat-msg--ai'">
+            <span class="rv-chat-role">{{ msg.role === 'user' ? 'Вы:' : 'ИИ:' }}</span>
+            <p class="rv-chat-text">{{ msg.text }}</p>
+          </div>
+          <p v-if="chatMessages.length === 0" class="rv-floating-chat-empty">Задайте вопрос по собранным данным</p>
+        </div>
+        <!-- Input -->
+        <div v-if="chatRemaining > 0" class="rv-chat-input-row">
+          <input v-model="chatInput" type="text" class="rv-chat-input" placeholder="Например: какие боли чаще всего упоминают?" @keyup.enter="onAskChat" />
+          <button class="rv-chat-send" :disabled="chatLoading || !chatInput.trim()" @click="onAskChat">
+            {{ chatLoading ? '...' : '→' }}
+          </button>
+        </div>
+        <p v-else class="rv-chat-exhausted">Лимит вопросов исчерпан</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -628,4 +661,33 @@ onMounted(loadReport)
 .rv-mention-bar-bg { height: 10px; background: #f3f4f6; border-radius: 5px; overflow: hidden; }
 .rv-mention-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 5px; transition: width 0.5s; }
 .rv-mention-count { font-size: 18px; font-weight: 700; color: var(--accent); min-width: 36px; text-align: right; }
+
+/* Scroll hint */
+.rv-scroll-hint { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: 0.7; animation: rv-bounce 2s infinite; pointer-events: none; z-index: 10; }
+.rv-scroll-hint-text { font-size: 13px; color: var(--text); background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.rv-scroll-hint-arrow { color: var(--accent); }
+@keyframes rv-bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(8px); } }
+
+/* Floating chat widget */
+.rv-floating-chat { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.rv-floating-chat-toggle { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,106,98,0.35); display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
+.rv-floating-chat-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,106,98,0.45); }
+.rv-floating-chat-panel { width: 380px; max-width: calc(100vw - 48px); max-height: 500px; background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.rv-floating-chat-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--accent-light); border-bottom: 1px solid var(--border); }
+.rv-floating-chat-header h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-h); }
+.rv-floating-chat-remaining { font-size: 12px; color: var(--text); background: #fff; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); }
+.rv-floating-chat-panel .rv-chat-context { margin: 10px 14px 0; padding: 8px 12px; font-size: 12px; }
+.rv-floating-chat-messages { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 120px; max-height: 280px; }
+.rv-floating-chat-empty { color: var(--text); font-size: 13px; opacity: 0.6; text-align: center; margin-top: 40px; }
+.rv-floating-chat-panel .rv-chat-input-row { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+.rv-floating-chat-panel .rv-chat-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; outline: none; }
+.rv-floating-chat-panel .rv-chat-input:focus { border-color: var(--accent); }
+.rv-floating-chat-panel .rv-chat-send { padding: 10px 16px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; }
+.rv-floating-chat-panel .rv-chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.rv-floating-chat-panel .rv-chat-exhausted { padding: 10px 14px; font-size: 13px; color: #dc2626; text-align: center; }
+.rv-floating-chat-panel .rv-chat-msg { padding: 8px 12px; border-radius: 10px; max-width: 90%; font-size: 13px; }
+.rv-floating-chat-panel .rv-chat-msg--user { align-self: flex-end; background: var(--accent-light); }
+.rv-floating-chat-panel .rv-chat-msg--ai { align-self: flex-start; background: #f3f4f6; }
+.rv-floating-chat-panel .rv-chat-role { font-weight: 600; font-size: 11px; color: var(--text); }
+.rv-floating-chat-panel .rv-chat-text { margin: 4px 0 0; line-height: 1.5; }
 </style>
