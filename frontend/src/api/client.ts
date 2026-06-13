@@ -5,6 +5,7 @@ import type {
   AnalysisStatusResponse,
   ReportListResponse,
   Report,
+  CategorySuggestResponse,
 } from '../types/api'
 
 const baseURL = import.meta.env.VITE_API_URL || '/api'
@@ -22,8 +23,13 @@ export async function getTopics(search?: string): Promise<TopicListResponse> {
   return data
 }
 
+export async function suggestCategories(query: string): Promise<CategorySuggestResponse> {
+  const { data } = await api.post<CategorySuggestResponse>('/categories/suggest', { query })
+  return data
+}
+
 export async function startAnalysis(
-  topicId: number,
+  topicId: number | number[],
   days: number = 30,
   fingerprint?: string,
   contactType?: string,
@@ -32,11 +38,15 @@ export async function startAnalysis(
   authToken?: string,
 ): Promise<AnalysisStartResponse> {
   const body: Record<string, unknown> = { 
-    topic_id: topicId, 
     days,
     contact_type: contactType || '',
     contact_value: contactValue || '',
     wait_on_page: waitOnPage || false,
+  }
+  if (Array.isArray(topicId)) {
+    body.topic_ids = topicId
+  } else {
+    body.topic_id = topicId
   }
   if (fingerprint) body.fingerprint = fingerprint
   

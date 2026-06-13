@@ -1,20 +1,31 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTopics, startAnalysis, checkLimit, createPaidAnalysis, checkPromoCode, login, register, checkAuth } from '../api/client'
+import { getTopics, startAnalysis, checkLimit, createPaidAnalysis, checkPromoCode, login, register, checkAuth, suggestCategories } from '../api/client'
 import { generateFingerprint } from '../utils/fingerprint'
-import type { Topic } from '../types/api'
+import type { Topic, CategorySuggestion } from '../types/api'
+import OkvedInput from '../components/OkvedInput.vue'
+import SuggestionPanel from '../components/SuggestionPanel.vue'
+import MultiSelectChips from '../components/MultiSelectChips.vue'
 
 const router = useRouter()
 
 const allTopics = ref<Topic[]>([])
 const searchQuery = ref('')
-const selectedTopic = ref<Topic | null>(null)
+const selectedTopics = ref<Topic[]>([])
 const selectedDays = ref(14)
 const loading = ref(false)
 const analyzing = ref(false)
 const error = ref('')
 const showAllCategories = ref(false)
+
+// ОКВЭД suggestion state
+const suggestions = ref<CategorySuggestion[]>([])
+const suggestLoading = ref(false)
+const suggestError = ref('')
+const suggestMessage = ref('')
+const toastMessage = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const fingerprint = ref('')
 const remainingAnalyses = ref(3)
@@ -53,6 +64,8 @@ const mainCategoriesSmall = [
   { icon: 'travel_explore', name: 'Путешествия' },
 ]
 
+const MAX_CATEGORIES = 5
+
 const filteredTopics = computed(() => {
   if (!searchQuery.value) return allTopics.value
   const q = searchQuery.value.toLowerCase()
@@ -72,18 +85,87 @@ async function loadTopics() {
   }
 }
 
-function selectByName(name: string) {
-  const topic = allTopics.value.find(t => t.name.toLowerCase() === name.toLowerCase())
-  if (topic) { selectedTopic.value = topic }
-  else { searchQuery.value = name; showAllCategories.value = true }
+function showToast(msg: string) {
+  toastMessage.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toastMessage.value = '' }, 1500)
+}
+
+function isTopicSelected(topicId: number): boolean {
+  return selectedTopics.value.some(t => t.id === topicId)
 }
 
 function selectTopic(topic: Topic) {
-  selectedTopic.value = topic
-  showAllCategories.value = false
+  // Toggle logic: if already selected, remove; otherwise add (if under limit)
+  const idx = selectedTopics.value.findIndex(t => t.id === topic.id)
+  if (idx !== -1) {
+    selectedTopics.value.splice(idx, 1)
+  } else {
+    if (selectedTopics.value.length >= MAX_CATEGORIES) {
+      showToast('Максимум 5 категорий')
+      return
+    }
+    selectedTopics.value.push(topic)
+  }
 }
 
-const canStart = computed(() => selectedTopic.value !== null && !limitReached.value)
+function selectByName(name: string) {
+  const topic = allTopics.value.find(t => t.name.toLowerCase() === name.toLowerCase())
+  if (topic) {
+    selectTopic(topic)
+  } else {
+    searchQuery.value = name
+    showAllCategories.value = true
+  }
+}
+
+function removeTopic(topicId: number) {
+  const idx = selectedTopics.value.findIndex(t => t.id === topicId)
+  if (idx !== -1) {
+    selectedTopics.value.splice(idx, 1)
+  }
+}
+
+// ОКВЭД suggestion handlers
+async function onSuggest(query: string) {
+  suggestLoading.value = true
+  suggestError.value = ''
+  suggestions.value = []
+  suggestMessage.value = ''
+  try {
+    const res = await suggestCategories(query)
+    suggestions.value = res.suggestions
+    suggestMessage.value = res.message || ''
+  } catch (e: any) {
+    suggestError.value = e?.response?.data?.detail || 'Не удалось подобрать. Выберите вручную.'
+  } finally {
+    suggestLoading.value = false
+  }
+}
+
+function onSelectSuggestion(suggestion: CategorySuggestion) {
+  const topic = allTopics.value.find(t => t.id === suggestion.topic_id)
+  if (topic) {
+    selectTopic(topic)
+  }
+}
+
+function onAcceptAll() {
+  for (const suggestion of suggestions.value) {
+    if (selectedTopics.value.length >= MAX_CATEGORIES) {
+      showToast('Максимум 5 категорий')
+      break
+    }
+    if (!isTopicSelected(suggestion.topic_id)) {
+      const topic = allTopics.value.find(t => t.id === suggestion.topic_id)
+      if (topic) {
+        selectedTopics.value.push(topic)
+      }
+    }
+  }
+}
+
+const canStart = computed(() => selectedTopics.value.length > 0 && !limitReached.value)
 
 function validateContact(): boolean {
   contactError.value = ''
@@ -194,13 +276,15 @@ async function onStart() {
   analyzing.value = true
   error.value = ''
   try {
-    const topicId = selectedTopic.value!.id
+    const ids = selectedTopics.value.map(t => t.id)
+    // Backward compat: if single category, pass just the id
+    const topicIdParam = ids.length === 1 ? ids[0] : ids
     const contact = contactType.value === 'telegram' 
       ? contactValue.value.trim().replace(/^@/, '') 
       : contactValue.value.trim()
     
     const res = await startAnalysis(
-      topicId, 
+      topicIdParam, 
       selectedDays.value, 
       fingerprint.value, 
       waitOnPage.value ? '' : contactType.value, 
@@ -210,7 +294,7 @@ async function onStart() {
     )
     remainingAnalyses.value = Math.max(0, remainingAnalyses.value - 1)
     if (remainingAnalyses.value <= 0) limitReached.value = true
-    router.push({ name: 'analysis', params: { taskId: res.task_id }, query: { topicId: String(topicId) } })
+    router.push({ name: 'analysis', params: { taskId: res.task_id }, query: { topicId: String(selectedTopics.value[0].id) } })
   } catch (e: any) {
     if (e?.response?.status === 429) { limitReached.value = true; remainingAnalyses.value = 0 }
     error.value = e?.response?.data?.detail || e?.message || 'Не удалось запустить анализ'
@@ -246,12 +330,13 @@ async function onApplyPaidPromo() {
 }
 
 async function onPaidStart() {
-  if (!selectedTopic.value) return
+  if (selectedTopics.value.length === 0) return
   paymentLoading.value = true
   error.value = ''
   try {
     const code = paidPromoApplied.value ? paidPromoCode.value.trim() : undefined
-    const result = await createPaidAnalysis(selectedTopic.value.id, selectedDays.value, fingerprint.value, code)
+    const primaryTopicId = selectedTopics.value[0].id
+    const result = await createPaidAnalysis(primaryTopicId, selectedDays.value, fingerprint.value, code)
     // Open Robokassa in same tab on mobile, new tab on desktop
     const invId = result.payment_url.match(/InvId=(\d+)/)?.[1]
     
@@ -259,7 +344,7 @@ async function onPaidStart() {
     if (invId) {
       localStorage.setItem('bizmap_pending_payment', JSON.stringify({
         invId,
-        topicId: selectedTopic.value.id,
+        topicId: primaryTopicId,
         timestamp: Date.now(),
       }))
     }
@@ -284,7 +369,7 @@ async function onPaidStart() {
               paymentPollTimer = null
               waitingPayment.value = false
               localStorage.removeItem('bizmap_pending_payment')
-              router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(data.topic_id || selectedTopic.value?.id) } })
+              router.push({ name: 'analysis', params: { taskId: data.task_id }, query: { topicId: String(data.topic_id || primaryTopicId) } })
             }
           } catch {}
         }, 3000)
@@ -386,6 +471,16 @@ onMounted(async () => {
 
 <template>
   <div class="bg-[#fcf8fa] text-[#1b1b1d] min-h-screen flex flex-col font-['Inter']">
+    <!-- Toast notification -->
+    <Transition name="fade">
+      <div
+        v-if="toastMessage"
+        class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-amber-100 text-amber-800 border border-amber-300 px-5 py-3 rounded-xl text-sm font-medium shadow-lg"
+      >
+        {{ toastMessage }}
+      </div>
+    </Transition>
+
     <!-- Navbar -->
     <nav class="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div class="flex justify-between items-center px-4 h-14 max-w-7xl mx-auto">
@@ -409,6 +504,25 @@ onMounted(async () => {
         <h1 class="text-[30px] leading-[38px] font-semibold tracking-tight text-[#1b1b1d] mb-2">Выберите категорию бизнеса</h1>
         <p class="text-base text-[#45464d] mb-6">Укажите сферу, чтобы ИИ смог подобрать наиболее релевантные данные и тренды.</p>
 
+        <!-- OkvedInput above search -->
+        <div class="mb-4">
+          <OkvedInput
+            :loading="suggestLoading"
+            :error="suggestError"
+            @suggest="onSuggest"
+          />
+        </div>
+
+        <!-- SuggestionPanel (visible when suggestions exist or message present) -->
+        <div v-if="suggestions.length > 0 || suggestMessage" class="mb-4">
+          <SuggestionPanel
+            :suggestions="suggestions"
+            :message="suggestMessage"
+            @select="onSelectSuggestion"
+            @accept-all="onAcceptAll"
+          />
+        </div>
+
         <div class="relative mb-6">
           <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#45464d]">search</span>
           <input
@@ -428,9 +542,30 @@ onMounted(async () => {
             v-for="tag in recommendedTags"
             :key="tag"
             class="bg-[#fcf8fa] rounded-full px-4 py-2 text-xs font-medium text-[#1b1b1d] border border-[#c6c6cd] hover:border-[#006a62] hover:text-[#006a62] transition-colors"
-            :class="{ '!bg-[#006a62] !text-white !border-[#006a62]': selectedTopic?.name === tag }"
+            :class="{ '!bg-[#006a62] !text-white !border-[#006a62]': selectedTopics.some(t => t.name === tag) }"
             @click="selectByName(tag)"
           >{{ tag }}</button>
+        </div>
+      </div>
+
+      <!-- MultiSelectChips (shown when categories selected) -->
+      <div v-if="selectedTopics.length > 0" class="bg-[#f0fdf9] border border-[#d1fae5] rounded-xl p-4">
+        <MultiSelectChips
+          :selected-topics="selectedTopics"
+          :max-count="MAX_CATEGORIES"
+          @remove="removeTopic"
+        />
+        <div class="flex gap-2 mt-3">
+          <button
+            class="px-4 py-2 border rounded-lg text-sm transition-all"
+            :class="selectedDays === 14 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
+            @click="selectedDays = 14"
+          >14 дней</button>
+          <button
+            class="px-4 py-2 border rounded-lg text-sm transition-all flex items-center gap-1.5"
+            :class="selectedDays === 30 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
+            @click="selectedDays = 30"
+          >30 дней <span class="w-4 h-4 bg-[#006a62] text-white text-[9px] font-bold rounded-full inline-flex items-center justify-center">₽</span></button>
         </div>
       </div>
 
@@ -441,7 +576,7 @@ onMounted(async () => {
           v-for="cat in mainCategoriesLarge"
           :key="cat.name"
           class="col-span-2 bg-[#fcf8fa] border border-[#c6c6cd] rounded-xl p-6 flex flex-col items-start justify-between h-40 hover:border-black hover:bg-[#f6f3f5] transition-colors group text-left"
-          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopic?.name === cat.name }"
+          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopics.some(t => t.name === cat.name) }"
           @click="selectByName(cat.name)"
         >
           <div :class="[cat.bg, cat.text, 'p-3 rounded-lg w-fit']">
@@ -458,7 +593,7 @@ onMounted(async () => {
           v-for="cat in mainCategoriesSmall"
           :key="cat.name"
           class="bg-[#fcf8fa] border border-[#c6c6cd] rounded-xl p-6 flex flex-col items-center justify-center gap-4 h-32 hover:border-black hover:bg-[#f6f3f5] transition-colors group"
-          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopic?.name === cat.name }"
+          :class="{ '!border-black !bg-[#f6f3f5]': selectedTopics.some(t => t.name === cat.name) }"
           @click="selectByName(cat.name)"
         >
           <span class="material-symbols-outlined text-[32px] text-[#45464d] group-hover:text-black transition-colors">{{ cat.icon }}</span>
@@ -486,32 +621,12 @@ onMounted(async () => {
             v-for="topic in filteredTopics"
             :key="topic.id"
             class="px-5 py-3.5 cursor-pointer text-sm hover:bg-[#f6f3f5] transition-colors"
-            :class="{ 'bg-[#f0fdf9] text-[#006a62] font-medium': selectedTopic?.id === topic.id }"
+            :class="{ 'bg-[#f0fdf9] text-[#006a62] font-medium': isTopicSelected(topic.id) }"
             @click="selectTopic(topic)"
           >{{ topic.name }}</li>
           <li v-if="filteredTopics.length === 0" class="px-5 py-8 text-center text-sm text-[#76777d]">Категории не найдены</li>
         </ul>
         <button class="mt-3 text-sm text-[#76777d] hover:text-[#006a62] transition-colors" @click="showAllCategories = false">← Назад к основным</button>
-      </div>
-
-      <!-- Selection bar -->
-      <div v-if="selectedTopic" class="flex items-center justify-between p-4 bg-[#f0fdf9] border border-[#d1fae5] rounded-xl flex-wrap gap-3">
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-[#45464d]">Выбрано:</span>
-          <span class="text-sm font-semibold">{{ selectedTopic.name }}</span>
-        </div>
-        <div class="flex gap-2">
-          <button
-            class="px-4 py-2 border rounded-lg text-sm transition-all"
-            :class="selectedDays === 14 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
-            @click="selectedDays = 14"
-          >14 дней</button>
-          <button
-            class="px-4 py-2 border rounded-lg text-sm transition-all flex items-center gap-1.5"
-            :class="selectedDays === 30 ? 'bg-black text-white border-black' : 'bg-[#fcf8fa] text-[#1b1b1d] border-[#c6c6cd] hover:border-black'"
-            @click="selectedDays = 30"
-          >30 дней <span class="w-4 h-4 bg-[#006a62] text-white text-[9px] font-bold rounded-full inline-flex items-center justify-center">₽</span></button>
-        </div>
       </div>
 
       <!-- Error -->
@@ -531,7 +646,7 @@ onMounted(async () => {
       </div>
 
       <!-- Limit -->
-      <div v-else-if="limitReached && selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
+      <div v-else-if="limitReached && selectedTopics.length > 0" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-5 py-4 text-sm">
         <p class="font-semibold mb-1">🔒 Бесплатные анализы исчерпаны</p>
         <p class="mb-3">Оплатите — после оплаты анализ запустится автоматически и вы получите полный отчёт.</p>
         <!-- Email for notification -->
@@ -561,7 +676,7 @@ onMounted(async () => {
           <button class="underline font-medium text-[#006a62]" @click="onConfirmPaid">Я оплатил</button>
         </p>
       </div>
-      <div v-else-if="limitReached && !selectedTopic" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
+      <div v-else-if="limitReached && selectedTopics.length === 0" class="bg-amber-50 text-amber-800 border border-amber-200 rounded-xl px-4 py-3 text-sm">
         🔒 Бесплатные анализы исчерпаны. Выберите категорию и оплатите для продолжения.
       </div>
 
@@ -727,8 +842,10 @@ onMounted(async () => {
         <!-- Summary -->
         <div class="bg-[#f6f3f5] rounded-lg p-4 mb-6">
           <div class="flex items-center justify-between text-sm">
-            <span class="text-[#45464d]">Категория:</span>
-            <span class="font-medium text-[#1b1b1d]">{{ selectedTopic?.name }}</span>
+            <span class="text-[#45464d]">Категории:</span>
+            <span class="font-medium text-[#1b1b1d]">
+              {{ selectedTopics.length === 1 ? selectedTopics[0].name : `${selectedTopics[0]?.name} и ещё ${selectedTopics.length - 1}` }}
+            </span>
           </div>
           <div class="flex items-center justify-between text-sm mt-2">
             <span class="text-[#45464d]">Период:</span>
@@ -814,3 +931,14 @@ onMounted(async () => {
     </footer>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

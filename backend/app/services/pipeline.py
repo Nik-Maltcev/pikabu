@@ -144,16 +144,47 @@ def _save_partial_result_to_db(
     return db_pr
 
 
+async def _collect_all_topic_ids_with_duplicates(
+    session: AsyncSession,
+    topic_ids: list[int],
+) -> tuple[set[int], list[int]]:
+    """Expand topic_ids by finding cross-platform duplicates for each.
+
+    Returns:
+        A tuple of (all_topic_ids_to_load, skipped_topic_ids).
+        - all_topic_ids_to_load: set of all unique topic IDs including duplicates.
+        - skipped_topic_ids: list of topic_ids that had no data (topic not found).
+    """
+    from app.services.topic_manager import TopicManager
+
+    tm = TopicManager(session)
+    all_ids: set[int] = set()
+    skipped: list[int] = []
+
+    for tid in topic_ids:
+        duplicates = await tm.find_duplicates_by_name(tid)
+        if not duplicates:
+            # Topic not found — skip and record
+            logger.warning("Topic %d not found or has no duplicates, skipping", tid)
+            skipped.append(tid)
+            continue
+        for dup in duplicates:
+            all_ids.add(dup.id)
+
+    return all_ids, skipped
+
+
 async def run_full_analysis(
     topic_id: int,
     session: AsyncSession,
     *,
+    topic_ids: list[int] | None = None,
     days: int = 30,
     parser_service: ParserService | None = None,
     cache_service: CacheService | None = None,
     analyzer_service: AnalyzerService | None = None,
 ) -> AnalysisTask:
-    """Orchestrate the full analysis pipeline for a topic.
+    """Orchestrate the full analysis pipeline for one or more topics.
 
     Steps:
         1. Check for active tasks (block duplicate runs)
@@ -166,9 +197,18 @@ async def run_full_analysis(
 
     On error: set status to "failed" with error_message, preserve partial results.
 
+    Multi-topic mode (when topic_ids is provided with >1 element):
+        - Uses topic_ids[0] as primary_topic_id for task and report binding
+        - Loads posts from ALL topic_ids (including cross-platform duplicates)
+        - Skips categories without data — logs a warning
+        - Generates a single unified report bound to primary_topic_id
+
     Args:
-        topic_id: DB primary key of the topic.
+        topic_id: DB primary key of the topic (used in single-topic mode).
         session: SQLAlchemy async session.
+        topic_ids: Optional list of topic IDs for multi-topic analysis.
+            When provided, overrides single topic_id behavior.
+        days: Number of days of data to include.
         parser_service: Optional injected ParserService (for testing).
         cache_service: Optional injected CacheService (for testing).
         analyzer_service: Optional injected AnalyzerService (for testing).
@@ -177,15 +217,25 @@ async def run_full_analysis(
         The AnalysisTask record.
 
     Raises:
-        AnalysisAlreadyRunningError: If an active task exists for this topic.
+        AnalysisAlreadyRunningError: If an active task exists for the primary topic.
     """
+    # Determine primary_topic_id and effective topic list
+    if topic_ids and len(topic_ids) > 1:
+        # Multi-topic mode
+        primary_topic_id = topic_ids[0]
+        is_multi = True
+    else:
+        # Single-topic mode (backward compatible)
+        primary_topic_id = topic_id
+        is_multi = False
+
     # 1. Block duplicate runs
-    active = await _get_active_task(session, topic_id)
+    active = await _get_active_task(session, primary_topic_id)
     if active is not None:
         raise AnalysisAlreadyRunningError(str(active.id))
 
     # 2. Create task
-    task = AnalysisTask(topic_id=topic_id, status="pending", progress_percent=0)
+    task = AnalysisTask(topic_id=primary_topic_id, status="pending", progress_percent=0)
     session.add(task)
     await session.flush()
 
@@ -197,86 +247,227 @@ async def run_full_analysis(
     partial_results: list[PartialResult] = []
 
     try:
-        # 3. Cache check → parse if needed
-        cache_valid = await cache.is_cache_valid(topic_id)
-        if not cache_valid:
-            await _update_task(session, task, status="parsing", current_stage="parsing", progress_percent=0)
-
-            async def _parse_progress(stage: str, percent: int) -> None:
-                await _update_task(session, task, current_stage=stage, progress_percent=min(percent, 30))
-
-            await parser.parse_topic(topic_id, callback=_parse_progress, days=days)
-
-        # 4. Chunk data
-        await _update_task(
-            session, task,
-            status="chunk_analysis",
-            current_stage="chunk_analysis",
-            progress_percent=30,
-        )
-
-        posts_data = await _load_posts_as_dicts(session, topic_id)
-        chunks = chunk_data(posts_data)
-        total_chunks = len(chunks)
-        await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
-
-        # 5. Analyze each chunk
-        for i, chunk in enumerate(chunks):
-            result = await analyzer.analyze_chunk(chunk)
-            partial_results.append(result)
-
-            # Save partial result to DB
-            _save_partial_result_to_db(session, task.id, result)
-            await session.flush()
-
-            processed = i + 1
-            # Progress: 30% (parsing) + 50% (chunk analysis) proportional
-            chunk_progress = 30 + int((processed / max(total_chunks, 1)) * 50)
-            await _update_task(
-                session, task,
-                processed_chunks=processed,
-                progress_percent=min(chunk_progress, 80),
+        if is_multi:
+            # --- Multi-topic path ---
+            # Expand topic_ids with cross-platform duplicates
+            all_load_ids, skipped_ids = await _collect_all_topic_ids_with_duplicates(
+                session, topic_ids  # type: ignore[arg-type]
             )
 
-        # 6. Aggregate
-        await _update_task(
-            session, task,
-            status="aggregating",
-            current_stage="aggregating",
-            progress_percent=80,
-        )
+            if skipped_ids:
+                logger.warning(
+                    "Multi-topic analysis: skipped categories with no data: %s",
+                    skipped_ids,
+                )
 
-        report_data = await analyzer.hierarchical_aggregate(partial_results)
+            if not all_load_ids:
+                # All categories were empty — fail gracefully
+                await _update_task(
+                    session, task,
+                    status="failed",
+                    current_stage="failed",
+                    error_message="All requested categories have no data",
+                )
+                await session.flush()
+                return task
 
-        # 7. Save report
-        hot_topics = report_data.get("hot_topics", [])
-        user_problems = report_data.get("user_problems", [])
-        trending = report_data.get("trending_discussions", [])
+            # 3. Cache check → parse for each topic if needed
+            for tid in all_load_ids:
+                cache_valid = await cache.is_cache_valid(tid)
+                if not cache_valid:
+                    await _update_task(
+                        session, task, status="parsing", current_stage="parsing", progress_percent=0
+                    )
 
-        db_report = DBReport(
-            topic_id=topic_id,
-            task_id=task.id,
-            hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
-            user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
-            trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
-            generated_at=datetime.now(timezone.utc),
-        )
-        session.add(db_report)
-        await session.flush()
+                    async def _parse_progress(stage: str, percent: int) -> None:
+                        await _update_task(session, task, current_stage=stage, progress_percent=min(percent, 30))
 
-        await _update_task(
-            session, task,
-            status="completed",
-            current_stage="completed",
-            progress_percent=100,
-        )
+                    try:
+                        await parser.parse_topic(tid, callback=_parse_progress, days=days)
+                    except Exception as parse_exc:
+                        logger.warning(
+                            "Failed to parse topic %d during multi-topic analysis: %s",
+                            tid, parse_exc,
+                        )
 
-        return task
+            # 4. Chunk data — load posts from all expanded topic IDs
+            await _update_task(
+                session, task,
+                status="chunk_analysis",
+                current_stage="chunk_analysis",
+                progress_percent=30,
+            )
+
+            posts_data: list[dict] = []
+            empty_categories: list[int] = []
+            for tid in sorted(all_load_ids):
+                topic_posts = await _load_posts_as_dicts(session, tid, days=days)
+                if not topic_posts:
+                    empty_categories.append(tid)
+                    logger.warning("Topic %d has no posts for the requested period, skipping", tid)
+                else:
+                    posts_data.extend(topic_posts)
+
+            if empty_categories:
+                logger.info(
+                    "Multi-topic analysis: categories without data: %s", empty_categories
+                )
+
+            if not posts_data:
+                await _update_task(
+                    session, task,
+                    status="failed",
+                    current_stage="failed",
+                    error_message="No posts found across all requested categories",
+                )
+                await session.flush()
+                return task
+
+            chunks = chunk_data(posts_data)
+            total_chunks = len(chunks)
+            await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
+
+            # 5. Analyze each chunk
+            for i, chunk in enumerate(chunks):
+                result = await analyzer.analyze_chunk(chunk)
+                partial_results.append(result)
+
+                _save_partial_result_to_db(session, task.id, result)
+                await session.flush()
+
+                processed = i + 1
+                chunk_progress = 30 + int((processed / max(total_chunks, 1)) * 50)
+                await _update_task(
+                    session, task,
+                    processed_chunks=processed,
+                    progress_percent=min(chunk_progress, 80),
+                )
+
+            # 6. Aggregate
+            await _update_task(
+                session, task,
+                status="aggregating",
+                current_stage="aggregating",
+                progress_percent=80,
+            )
+
+            report_data = await analyzer.hierarchical_aggregate(partial_results)
+
+            # 7. Save report — bound to primary_topic_id
+            hot_topics = report_data.get("hot_topics", [])
+            user_problems = report_data.get("user_problems", [])
+            trending = report_data.get("trending_discussions", [])
+
+            # Build sources info including skipped/empty categories
+            sources_info = f"multi:{len(topic_ids)}topics"  # type: ignore[arg-type]
+            if empty_categories:
+                sources_info += f",empty:{len(empty_categories)}"
+            # Truncate to fit DB column (50 chars max)
+            sources_info = sources_info[:50]
+
+            db_report = DBReport(
+                topic_id=primary_topic_id,
+                task_id=task.id,
+                hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
+                user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
+                trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
+                generated_at=datetime.now(timezone.utc),
+                sources=sources_info,
+            )
+            session.add(db_report)
+            await session.flush()
+
+            await _update_task(
+                session, task,
+                status="completed",
+                current_stage="completed",
+                progress_percent=100,
+            )
+
+            return task
+
+        else:
+            # --- Single-topic path (original behavior, backward compatible) ---
+            # 3. Cache check → parse if needed
+            cache_valid = await cache.is_cache_valid(topic_id)
+            if not cache_valid:
+                await _update_task(session, task, status="parsing", current_stage="parsing", progress_percent=0)
+
+                async def _parse_progress_single(stage: str, percent: int) -> None:
+                    await _update_task(session, task, current_stage=stage, progress_percent=min(percent, 30))
+
+                await parser.parse_topic(topic_id, callback=_parse_progress_single, days=days)
+
+            # 4. Chunk data
+            await _update_task(
+                session, task,
+                status="chunk_analysis",
+                current_stage="chunk_analysis",
+                progress_percent=30,
+            )
+
+            posts_data = await _load_posts_as_dicts(session, topic_id)
+            chunks = chunk_data(posts_data)
+            total_chunks = len(chunks)
+            await _update_task(session, task, total_chunks=total_chunks, processed_chunks=0)
+
+            # 5. Analyze each chunk
+            for i, chunk in enumerate(chunks):
+                result = await analyzer.analyze_chunk(chunk)
+                partial_results.append(result)
+
+                # Save partial result to DB
+                _save_partial_result_to_db(session, task.id, result)
+                await session.flush()
+
+                processed = i + 1
+                # Progress: 30% (parsing) + 50% (chunk analysis) proportional
+                chunk_progress = 30 + int((processed / max(total_chunks, 1)) * 50)
+                await _update_task(
+                    session, task,
+                    processed_chunks=processed,
+                    progress_percent=min(chunk_progress, 80),
+                )
+
+            # 6. Aggregate
+            await _update_task(
+                session, task,
+                status="aggregating",
+                current_stage="aggregating",
+                progress_percent=80,
+            )
+
+            report_data = await analyzer.hierarchical_aggregate(partial_results)
+
+            # 7. Save report
+            hot_topics = report_data.get("hot_topics", [])
+            user_problems = report_data.get("user_problems", [])
+            trending = report_data.get("trending_discussions", [])
+
+            db_report = DBReport(
+                topic_id=topic_id,
+                task_id=task.id,
+                hot_topics=[t.model_dump() if hasattr(t, "model_dump") else t for t in hot_topics],
+                user_problems=[p.model_dump() if hasattr(p, "model_dump") else p for p in user_problems],
+                trending_discussions=[d.model_dump() if hasattr(d, "model_dump") else d for d in trending],
+                generated_at=datetime.now(timezone.utc),
+            )
+            session.add(db_report)
+            await session.flush()
+
+            await _update_task(
+                session, task,
+                status="completed",
+                current_stage="completed",
+                progress_percent=100,
+            )
+
+            return task
 
     except AnalysisAlreadyRunningError:
         raise
     except (AnalyzerError, ParserError, Exception) as exc:
-        logger.error("Pipeline failed for topic %s: %s", topic_id, exc, exc_info=True)
+        logger.error("Pipeline failed for topic %s: %s", primary_topic_id, exc, exc_info=True)
 
         # Save any partial results collected so far
         for pr in partial_results:

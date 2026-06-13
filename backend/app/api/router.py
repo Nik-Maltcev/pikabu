@@ -24,6 +24,8 @@ from app.models.schemas import (
     AnalysisStartRequest,
     AnalysisStartResponse,
     AnalysisStatusResponse,
+    CategorySuggestRequest,
+    CategorySuggestResponse,
     MirofishExportRequest,
     MirofishExportResponse,
     NicheReport,
@@ -32,6 +34,7 @@ from app.models.schemas import (
     Topic,
     TopicListResponse,
 )
+from app.services.category_suggester import CategorySuggesterError, CategorySuggesterService
 from app.services.pipeline import AnalysisAlreadyRunningError, run_full_analysis
 from app.services.topic_manager import TopicManager
 from app.services.task_queue import analysis_queue
@@ -90,6 +93,25 @@ async def get_topics(
     except Exception as exc:
         logger.exception("Error fetching topics: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/categories/suggest", response_model=CategorySuggestResponse)
+async def suggest_categories(
+    request: CategorySuggestRequest,
+    session: AsyncSession = Depends(get_session),
+) -> CategorySuggestResponse:
+    """Suggest relevant categories based on OKVED code or activity description."""
+    try:
+        service = CategorySuggesterService(session)
+        suggestions = await service.suggest(request.query)
+        message = ""
+        if not suggestions:
+            message = "Не удалось подобрать категории для данного описания"
+        return CategorySuggestResponse(suggestions=suggestions, message=message)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CategorySuggesterError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/limit/check")
@@ -286,25 +308,37 @@ async def start_analysis(
         # No fingerprint provided — allow but log warning
         logger.warning("Analysis request without fingerprint — rate limiting skipped")
 
-    # Validate topic exists
-    result = await session.execute(
-        select(DBTopic).where(DBTopic.id == request.topic_id)
-    )
-    topic = result.scalar_one_or_none()
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Topic not found")
+    # Determine effective list of topic_ids from request
+    if request.topic_id is not None:
+        effective_topic_ids = [request.topic_id]
+    else:
+        effective_topic_ids = request.topic_ids  # type: ignore[assignment]
+
+    # Validate ALL topic_ids exist in DB
+    for tid in effective_topic_ids:
+        result = await session.execute(
+            select(DBTopic).where(DBTopic.id == tid)
+        )
+        topic = result.scalar_one_or_none()
+        if topic is None:
+            raise HTTPException(status_code=404, detail=f"Topic {tid} not found")
 
     # Validate days
     if request.days not in (14, 30):
         raise HTTPException(status_code=400, detail="days must be 14 or 30")
 
-    # Find all duplicate topics by name across platforms
+    # Find all duplicate topics by name across platforms for EACH effective topic_id
     tm = TopicManager(session)
-    all_topics = await tm.find_duplicates_by_name(request.topic_id)
-    # Build a list of topic IDs grouped by source
     topic_ids_by_source: dict[str, int] = {}
-    for t in all_topics:
-        topic_ids_by_source[t.source] = t.id
+    for tid in effective_topic_ids:
+        all_topics = await tm.find_duplicates_by_name(tid)
+        for t in all_topics:
+            # First encountered topic_id for a source wins (no overwrite)
+            if t.source not in topic_ids_by_source:
+                topic_ids_by_source[t.source] = t.id
+
+    # primary_topic_id is the first in the effective list (used for report storage)
+    primary_topic_id = effective_topic_ids[0]
 
     # Determine source label
     sources = sorted(topic_ids_by_source.keys())
@@ -313,7 +347,7 @@ async def start_analysis(
     try:
         # Create the task record with contact info
         task = AnalysisTask(
-            topic_id=request.topic_id,
+            topic_id=primary_topic_id,
             status="queued",
             progress_percent=0,
             analysis_mode=request.analysis_mode,
@@ -329,7 +363,7 @@ async def start_analysis(
         # This prevents overloading LLM APIs when multiple users start analyses
         def make_coro():
             return _run_analysis_background(
-                primary_topic_id=request.topic_id,
+                primary_topic_id=primary_topic_id,
                 topic_ids_by_source=topic_ids_by_source,
                 task_id=task_id,
                 days=request.days,
@@ -337,7 +371,7 @@ async def start_analysis(
                 sources_label=sources_label,
             )
         
-        queue_position = await analysis_queue.enqueue(task_id, request.topic_id, make_coro)
+        queue_position = await analysis_queue.enqueue(task_id, primary_topic_id, make_coro)
         logger.info("Task %s queued at position %d", task_id, queue_position)
 
         # Increment fingerprint usage counter

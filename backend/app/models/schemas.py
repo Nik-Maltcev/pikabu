@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 # --- Report sub-models ---
@@ -156,6 +156,40 @@ class TopicListResponse(BaseModel):
     topics: list[Topic]
 
 
+# --- Category suggest models ---
+
+
+class CategorySuggestion(BaseModel):
+    """Рекомендация категории от LLM."""
+
+    topic_id: int
+    name: str
+    reason: str  # Обоснование, до 100 символов
+
+
+class CategorySuggestRequest(BaseModel):
+    """Запрос на подбор категорий."""
+
+    query: str
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_length(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("Минимум 2 символа")
+        if len(v) > 200:
+            raise ValueError("Максимум 200 символов")
+        return v
+
+
+class CategorySuggestResponse(BaseModel):
+    """Ответ с рекомендациями."""
+
+    suggestions: list[CategorySuggestion]
+    message: str = ""
+
+
 # --- Analysis models ---
 
 
@@ -169,15 +203,30 @@ class AnalysisStartRequest(BaseModel):
     1. Authenticated user (has token) - report linked to account
     2. Guest (no token) - must provide contact_type + contact_value for notification
        OR can choose to wait on page (wait_on_page=True)
+    
+    Topic selection: exactly one of topic_id or topic_ids must be provided.
+    - topic_id: single category (backward compatible)
+    - topic_ids: multiple categories, 1-5 items
     """
 
-    topic_id: int
+    topic_id: int | None = None  # backward compat: одна категория
+    topic_ids: list[int] | None = None  # новое: несколько категорий (1-5)
     days: int = 14  # 14 or 30 (30 is paid only)
     analysis_mode: str = "niche_search"  # "niche_search" or "topic_analysis"
     fingerprint: str = ""  # Browser fingerprint for rate limiting
     contact_type: str = ""  # "email" or "telegram" - for notification when ready
     contact_value: str = ""  # email address or telegram username
     wait_on_page: bool = False  # If True, user will wait on page (no contact needed)
+
+    @model_validator(mode="after")
+    def validate_topic_selection(self) -> "AnalysisStartRequest":
+        if self.topic_id is None and not self.topic_ids:
+            raise ValueError("Укажите topic_id или topic_ids")
+        if self.topic_id is not None and self.topic_ids:
+            raise ValueError("Укажите только topic_id или topic_ids, не оба")
+        if self.topic_ids and len(self.topic_ids) > 5:
+            raise ValueError("Максимум 5 категорий")
+        return self
 
 
 class AnalysisStartResponse(BaseModel):

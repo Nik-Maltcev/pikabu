@@ -97,15 +97,30 @@ export interface TopicListResponse {
   topics: Topic[]
 }
 
+// --- Category suggestion models ---
+
+export interface CategorySuggestion {
+  topic_id: number
+  name: string
+  reason: string
+}
+
+export interface CategorySuggestResponse {
+  suggestions: CategorySuggestion[]
+  message: string
+}
+
 // --- Analysis models ---
 
 export interface AnalysisStartRequest {
-  topic_id: number
+  topic_id?: number
+  topic_ids?: number[]
   days?: number
   analysis_mode?: string
   fingerprint?: string
-  contact_type: string  // "email" or "telegram"
-  contact_value: string // email address or telegram username
+  contact_type?: string
+  contact_value?: string
+  wait_on_page?: boolean
 }
 
 export interface AnalysisStartResponse {
