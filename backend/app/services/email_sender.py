@@ -38,7 +38,7 @@ async def send_report_ready_email(to_email: str, report_url: str, topic_name: st
                 json={
                     "from": settings.resend_from_email,
                     "to": [to_email],
-                    "subject": "BizMap: ваш отчёт готов!",
+                    "subject": "BizMap — ваш отчёт готов",
                     "html": html_body,
                 },
             )
