@@ -3,6 +3,7 @@
 Allows multiple analyses to run in parallel while respecting:
 - LLM API rate limits (configurable max concurrent)
 - Memory limits (Playwright instances)
+- Multi-worker safety via PostgreSQL advisory locks
 """
 
 import asyncio
@@ -12,7 +13,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Coroutine
 from uuid import UUID
 
+from sqlalchemy import text
+
 from app.config import settings
+from app.database import async_session as async_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -89,37 +93,60 @@ class AnalysisQueue:
         return waiting
     
     async def _run_task(self, queued: QueuedTask):
-        """Execute a task with semaphore control and timeout."""
+        """Execute a task with semaphore control, advisory lock, and timeout.
+        
+        Uses both a local semaphore (fast path) and a PostgreSQL advisory lock
+        (distributed safety) to ensure global concurrency limit even across workers.
+        """
         self._waiting_count += 1
         
-        # Wait for a slot
+        # Wait for local semaphore slot
         async with self._semaphore:
             self._waiting_count -= 1
-            self._active_tasks[queued.task_id] = queued
             
-            wait_time = (datetime.now(timezone.utc) - queued.created_at).total_seconds()
-            logger.info(
-                "Task %s starting (topic=%s, waited=%.1fs, active=%d/%d)",
-                queued.task_id, queued.topic_id, wait_time,
-                len(self._active_tasks), self._max_concurrent
-            )
-            
+            # Acquire a distributed advisory lock (one per slot).
+            # Lock key = base + slot index (we pick from active count).
+            # pg_advisory_lock blocks until released — provides cross-worker safety.
+            slot_key = 900_000 + (len(self._active_tasks) % self._max_concurrent)
+            lock_acquired = False
             try:
-                coro = queued.coro_factory()
-                # 30 minute timeout — if task hangs longer, it's dead
-                await asyncio.wait_for(coro, timeout=1800)
-                self._total_processed += 1
-            except asyncio.TimeoutError:
-                logger.error("Task %s timed out after 30 minutes", queued.task_id)
+                async with async_session_factory() as lock_session:
+                    await lock_session.execute(text(f"SELECT pg_advisory_lock({slot_key})"))
+                    lock_acquired = True
+                    
+                    self._active_tasks[queued.task_id] = queued
+                    
+                    wait_time = (datetime.now(timezone.utc) - queued.created_at).total_seconds()
+                    logger.info(
+                        "Task %s starting (topic=%s, waited=%.1fs, active=%d/%d, lock=%d)",
+                        queued.task_id, queued.topic_id, wait_time,
+                        len(self._active_tasks), self._max_concurrent, slot_key
+                    )
+                    
+                    try:
+                        coro = queued.coro_factory()
+                        # 30 minute timeout — if task hangs longer, it's dead
+                        await asyncio.wait_for(coro, timeout=1800)
+                        self._total_processed += 1
+                    except asyncio.TimeoutError:
+                        logger.error("Task %s timed out after 30 minutes", queued.task_id)
+                    except Exception as e:
+                        logger.error("Task %s failed: %s", queued.task_id, e)
+                    finally:
+                        self._active_tasks.pop(queued.task_id, None)
+                        logger.info(
+                            "Task %s finished (active=%d/%d, total_processed=%d)",
+                            queued.task_id, len(self._active_tasks), 
+                            self._max_concurrent, self._total_processed
+                        )
+                    
+                    # Advisory lock released when session closes
+                    await lock_session.execute(text(f"SELECT pg_advisory_unlock({slot_key})"))
             except Exception as e:
-                logger.error("Task %s failed: %s", queued.task_id, e)
-            finally:
-                self._active_tasks.pop(queued.task_id, None)
-                logger.info(
-                    "Task %s finished (active=%d/%d, total_processed=%d)",
-                    queued.task_id, len(self._active_tasks), 
-                    self._max_concurrent, self._total_processed
-                )
+                if not lock_acquired:
+                    logger.error("Task %s failed to acquire advisory lock: %s", queued.task_id, e)
+                    self._active_tasks.pop(queued.task_id, None)
+                raise
     
     def get_status(self) -> dict:
         """Get current queue status."""

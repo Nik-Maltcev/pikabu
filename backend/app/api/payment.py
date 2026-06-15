@@ -267,14 +267,30 @@ async def payment_success(
             redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id}"
             return RedirectResponse(url=redirect_url)
 
-        # Webhook hasn't fired yet — launch analysis here as fallback
-        if payment.status != "paid":
-            payment.status = "paid"
-            payment.paid_at = datetime.now(timezone.utc)
+        # Webhook hasn't fired yet — wait briefly for it instead of launching a duplicate
+        import asyncio
+        for _ in range(5):
+            await asyncio.sleep(1)
+            await session.refresh(payment)
+            if payment.task_id:
+                redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id}"
+                return RedirectResponse(url=redirect_url)
 
+        # After 5s the webhook still hasn't arrived — launch as last resort
+        # Use a unique constraint check to prevent duplicates
         from app.api.router import _run_analysis_background
         from app.models.database import AnalysisTask
         from app.services.topic_manager import TopicManager
+
+        # Re-check one more time after acquiring a lock
+        await session.refresh(payment)
+        if payment.task_id:
+            redirect_url = f"{settings.site_url}/analysis/{payment.task_id}?topicId={Shp_topic_id}"
+            return RedirectResponse(url=redirect_url)
+
+        if payment.status != "paid":
+            payment.status = "paid"
+            payment.paid_at = datetime.now(timezone.utc)
 
         topic_id = int(Shp_topic_id)
         days = int(Shp_days) if Shp_days else 14

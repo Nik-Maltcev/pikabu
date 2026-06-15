@@ -292,10 +292,20 @@ async def start_analysis(
         if len(contact_value) < 3:
             raise HTTPException(status_code=400, detail="Invalid telegram username")
 
-    # Rate limiting by browser fingerprint
-    if request.fingerprint:
+    # Rate limiting by browser fingerprint (required for guests)
+    if not request.fingerprint:
+        if not user:
+            raise HTTPException(
+                status_code=422,
+                detail="fingerprint is required for guest users",
+            )
+        # Authenticated users don't need fingerprint for rate limiting
+    else:
+        # Atomic check: SELECT ... FOR UPDATE prevents race condition
         result_limit = await session.execute(
-            select(DeviceLimit).where(DeviceLimit.fingerprint == request.fingerprint)
+            select(DeviceLimit)
+            .where(DeviceLimit.fingerprint == request.fingerprint)
+            .with_for_update()
         )
         device = result_limit.scalar_one_or_none()
 
@@ -304,9 +314,6 @@ async def start_analysis(
                 status_code=429,
                 detail="Лимит бесплатных анализов исчерпан. Оплатите для продолжения.",
             )
-    else:
-        # No fingerprint provided — allow but log warning
-        logger.warning("Analysis request without fingerprint — rate limiting skipped")
 
     # Determine effective list of topic_ids from request
     if request.topic_id is not None:
@@ -374,12 +381,8 @@ async def start_analysis(
         queue_position = await analysis_queue.enqueue(task_id, primary_topic_id, make_coro)
         logger.info("Task %s queued at position %d", task_id, queue_position)
 
-        # Increment fingerprint usage counter
+        # Increment fingerprint usage counter (row already locked by FOR UPDATE above)
         if request.fingerprint:
-            result_limit = await session.execute(
-                select(DeviceLimit).where(DeviceLimit.fingerprint == request.fingerprint)
-            )
-            device = result_limit.scalar_one_or_none()
             now = datetime.now(timezone.utc)
             if device:
                 device.analyses_count += 1
