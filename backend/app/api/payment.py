@@ -422,9 +422,11 @@ async def confirm_payment(
 ):
     """Manual payment confirmation. Called when user clicks 'I paid'.
     
-    Marks payment as paid and launches analysis if webhook didn't arrive.
+    Verifies payment status with Robokassa before confirming.
+    Only marks as paid if Robokassa confirms the transaction.
     """
     import asyncio
+    import httpx
 
     result = await session.execute(
         select(Payment).where(Payment.robokassa_inv_id == inv_id)
@@ -437,7 +439,43 @@ async def confirm_payment(
     if payment.status == "paid" and payment.task_id:
         return {"paid": True, "task_id": payment.task_id, "topic_id": payment.topic_id}
 
-    # Mark as paid (trust the user — they already paid via bank)
+    # Verify with Robokassa before trusting the user
+    is_verified = False
+    try:
+        # Robokassa XML interface for checking payment status
+        login = settings.robokassa_login
+        password2 = settings.robokassa_password2
+        check_url = "https://auth.robokassa.ru/Merchant/WebService/Service.asmx/OpStateExt"
+        
+        # Signature: MerchantLogin:InvId:Password#2
+        sig_str = f"{login}:{inv_id}:{password2}"
+        sig = hashlib.md5(sig_str.encode()).hexdigest()
+        
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                check_url,
+                params={
+                    "MerchantLogin": login,
+                    "InvoiceID": inv_id,
+                    "Signature": sig,
+                },
+            )
+            # Robokassa returns XML with State Code:
+            # 100 = completed successfully
+            if resp.status_code == 200 and "100" in resp.text:
+                is_verified = True
+                logger.info(f"Robokassa verified payment InvId={inv_id} as paid")
+            else:
+                logger.warning(f"Robokassa says InvId={inv_id} NOT paid: {resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"Failed to verify payment {inv_id} with Robokassa: {e}")
+        # If Robokassa is unreachable, don't blindly trust the user
+        return {"paid": False, "error": "Не удалось проверить оплату. Попробуйте через минуту."}
+
+    if not is_verified:
+        return {"paid": False, "error": "Оплата ещё не подтверждена Робокассой. Подождите немного."}
+
+    # Robokassa confirmed — mark as paid
     if payment.status != "paid":
         payment.status = "paid"
         payment.paid_at = datetime.now(timezone.utc)
