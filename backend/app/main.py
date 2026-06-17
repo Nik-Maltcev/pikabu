@@ -55,34 +55,42 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-        # Add source columns if they don't exist (for existing DBs without migration)
-        for stmt in [
-            "ALTER TABLE topics ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
-            "ALTER TABLE posts ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
-            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS sources VARCHAR(50) NOT NULL DEFAULT 'pikabu'",
-            "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
-            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
-            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS niche_data JSONB",
-            "ALTER TABLE payments ALTER COLUMN report_id DROP NOT NULL",
-            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS topic_id INTEGER",
-            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS task_id VARCHAR(64)",
-            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER",
-            # Contact columns for notifications
-            "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS contact_type VARCHAR(20)",
-            "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS contact_value VARCHAR(255)",
-            # User email/password auth columns
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
-            "ALTER TABLE users ALTER COLUMN phone DROP NOT NULL",
-            # Analysis task user_id for linking
-            "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS user_id INTEGER",
-            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50)",
-            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS questions_used INTEGER DEFAULT 0",
-        ]:
-            try:
+    # Add missing columns one by one in separate transactions
+    # (prevents one failure from blocking subsequent ALTERs)
+    alter_statements = [
+        "ALTER TABLE topics ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
+        "ALTER TABLE posts ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'pikabu'",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS sources VARCHAR(50) NOT NULL DEFAULT 'pikabu'",
+        "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS analysis_mode VARCHAR(30) NOT NULL DEFAULT 'topic_analysis'",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS niche_data JSONB",
+        "ALTER TABLE payments ALTER COLUMN report_id DROP NOT NULL",
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS topic_id INTEGER",
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS task_id VARCHAR(64)",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER",
+        # Contact columns for notifications
+        "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS contact_type VARCHAR(20)",
+        "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS contact_value VARCHAR(255)",
+        # User email/password auth columns
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
+        "ALTER TABLE users ALTER COLUMN phone DROP NOT NULL",
+        # Analysis task user_id for linking
+        "ALTER TABLE analysis_tasks ADD COLUMN IF NOT EXISTS user_id INTEGER",
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS promo_code VARCHAR(50)",
+        "ALTER TABLE payments ADD COLUMN IF NOT EXISTS questions_used INTEGER DEFAULT 0",
+        # Report stats columns
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS posts_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS comments_count INTEGER NOT NULL DEFAULT 0",
+    ]
+    
+    for stmt in alter_statements:
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text(stmt))
-            except Exception:
-                pass  # Column already exists or DB doesn't support IF NOT EXISTS
+        except Exception as e:
+            # Log the actual error instead of silently swallowing
+            logger.debug("Auto-migrate skipped (%s): %s", stmt[:60], e)
 
     logger.info("Database tables ensured.")
     

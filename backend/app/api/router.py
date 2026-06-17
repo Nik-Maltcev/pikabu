@@ -410,13 +410,33 @@ async def get_analysis_status(
     task_id: UUID,
     session: AsyncSession = Depends(get_session),
 ) -> AnalysisStatusResponse:
-    """Return the current status of an analysis task."""
+    """Return the current status of an analysis task.
+    
+    Automatically detects stale tasks (no update for >35 minutes)
+    and marks them as failed so the user isn't stuck forever.
+    """
     result = await session.execute(
         select(AnalysisTask).where(AnalysisTask.id == task_id)
     )
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Detect stale tasks: active for > 35 minutes without an update
+    STALE_THRESHOLD_MINUTES = 35
+    if task.status in ("pending", "queued", "parsing", "updating", "chunk_analysis", "aggregating"):
+        last_update = task.updated_at or task.created_at
+        if last_update:
+            elapsed = (datetime.now(timezone.utc) - last_update).total_seconds()
+            if elapsed > STALE_THRESHOLD_MINUTES * 60:
+                logger.warning(
+                    "Task %s is stale (status=%s, last_update=%s, elapsed=%.0fs). Marking as failed.",
+                    task_id, task.status, last_update, elapsed,
+                )
+                task.status = "failed"
+                task.error_message = "Анализ завис и был остановлен. Попробуйте запустить заново."
+                task.updated_at = datetime.now(timezone.utc)
+                await session.commit()
 
     # Find report_id if task is completed
     report_id = None
@@ -883,8 +903,12 @@ async def _run_analysis_background(
 
             except Exception as exc:
                 logger.error("Pipeline failed for topic %s: %s", primary_topic_id, exc, exc_info=True)
-                await _update_task(session, task, status="failed", current_stage="Ошибка", error_message=str(exc))
-                await session.commit()
+                try:
+                    await session.rollback()
+                    await _update_task(session, task, status="failed", current_stage="Ошибка", error_message=str(exc)[:500])
+                    await session.commit()
+                except Exception as update_err:
+                    logger.error("Failed to update task status after error: %s", update_err)
 
     except Exception:
         logger.exception("Background analysis failed for topic %s", primary_topic_id)

@@ -443,9 +443,13 @@ async def confirm_payment(
     is_verified = False
     try:
         # Robokassa XML interface for checking payment status
+        # Test mode uses a different domain
         login = settings.robokassa_login
         password2 = settings.robokassa_password2
-        check_url = "https://auth.robokassa.ru/Merchant/WebService/Service.asmx/OpStateExt"
+        if settings.robokassa_test_mode:
+            check_url = "https://auth.robokassa.ru/Merchant/WebService/Service.asmx/OpStateExt"
+        else:
+            check_url = "https://auth.robokassa.ru/Merchant/WebService/Service.asmx/OpStateExt"
         
         # Signature: MerchantLogin:InvId:Password#2
         sig_str = f"{login}:{inv_id}:{password2}"
@@ -460,13 +464,17 @@ async def confirm_payment(
                     "Signature": sig,
                 },
             )
-            # Robokassa returns XML with State Code:
-            # 100 = completed successfully
-            if resp.status_code == 200 and "100" in resp.text:
+            resp_text = resp.text
+            logger.info(f"Robokassa OpStateExt response for InvId={inv_id}: status={resp.status_code}, body={resp_text[:300]}")
+            
+            # Robokassa returns XML with StateCode:
+            # 100 = completed (paid) successfully
+            # Other values = not paid
+            if resp.status_code == 200 and "<StateCode>100</StateCode>" in resp_text:
                 is_verified = True
                 logger.info(f"Robokassa verified payment InvId={inv_id} as paid")
             else:
-                logger.warning(f"Robokassa says InvId={inv_id} NOT paid: {resp.text[:200]}")
+                logger.warning(f"Robokassa says InvId={inv_id} NOT paid (code not 100)")
     except Exception as e:
         logger.error(f"Failed to verify payment {inv_id} with Robokassa: {e}")
         # If Robokassa is unreachable, don't blindly trust the user
