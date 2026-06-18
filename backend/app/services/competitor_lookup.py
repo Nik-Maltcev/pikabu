@@ -96,7 +96,8 @@ class CompetitorLookupService:
         self, idea_name: str, description: str
     ) -> list[Analogue]:
         """
-        Search Linkup API for competitors matching the idea.
+        Search Linkup API for competitors matching the idea,
+        then extract structured company data via LLM.
 
         Args:
             idea_name: Name of the business idea.
@@ -105,7 +106,7 @@ class CompetitorLookupService:
         Returns:
             List of 0-3 Analogue objects found.
         """
-        query = f"startups and companies similar to: {idea_name}. {description}"
+        query = f"российские стартапы и компании аналоги: {idea_name}. {description}. выручка, инвестиции, раунды"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
@@ -145,36 +146,77 @@ class CompetitorLookupService:
                 return []
 
             data = response.json()
-            return self._parse_results(data)
+            return await self._extract_analogues_via_llm(data, idea_name, description)
 
-    def _parse_results(self, data: dict) -> list[Analogue]:
-        """
-        Parse Linkup API response into Analogue objects.
+    async def _extract_analogues_via_llm(
+        self, search_data: dict, idea_name: str, description: str
+    ) -> list[Analogue]:
+        """Extract structured company analogues from raw search results using LLM."""
+        import json
+        from app.services.analyzer import AnalyzerService
 
-        Extracts up to 3 analogues from search results.
-        Truncates description to 200 chars if longer.
-        """
-        analogues: list[Analogue] = []
-        results = data.get("results", [])
+        results = search_data.get("results", [])
+        if not results:
+            return []
 
-        for result in results[:3]:
-            name = result.get("name", "") or result.get("title", "")
-            desc = result.get("content", "") or result.get("snippet", "")
+        # Build context from search results
+        context_parts = []
+        for i, result in enumerate(results[:5], 1):
+            title = result.get("name", "") or result.get("title", "")
+            content = result.get("content", "") or result.get("snippet", "")
+            url = result.get("url", "")
+            context_parts.append(f"{i}. {title}\n{content[:300]}\nURL: {url}")
 
-            if not name:
-                continue
+        search_context = "\n\n".join(context_parts)
 
-            # Enforce max 200 chars on description
-            if len(desc) > 200:
-                desc = desc[:197] + "..."
+        prompt = f"""На основе результатов поиска ниже, найди 1-3 КОНКРЕТНЫЕ компании или стартапы, которые являются аналогами бизнес-идеи "{idea_name}" ({description}).
 
-            analogue = Analogue(
-                company_name=name,
-                description=desc,
-                annual_revenue=result.get("annual_revenue"),
-                investment_round=result.get("investment_round"),
-                has_ru_competitor=result.get("has_ru_competitor"),
-            )
-            analogues.append(analogue)
+Результаты поиска:
+{search_context}
 
-        return analogues
+Для каждой компании укажи:
+- company_name: точное название компании
+- description: что делает (1-2 предложения, до 150 символов)
+- annual_revenue: годовая выручка если известна (строка, например "500 млн ₽" или null)
+- investment_round: раунд инвестиций если известен (например "Series A, $10M" или null)
+- has_ru_competitor: есть ли этот бизнес в России (true/false/null)
+
+Ответь ТОЛЬКО валидным JSON массивом. Если конкретных компаний не нашлось — верни [].
+Не выдумывай данные, указывай только то, что есть в результатах.
+
+JSON:"""
+
+        try:
+            analyzer = AnalyzerService()
+            response_text = await analyzer._call_llm(prompt, max_tokens=1000)
+            
+            # Parse JSON response
+            response_text = response_text.strip()
+            if response_text.startswith("```"):
+                response_text = response_text.split("\n", 1)[1].rsplit("```", 1)[0]
+            
+            parsed = json.loads(response_text)
+            if not isinstance(parsed, list):
+                return []
+
+            analogues: list[Analogue] = []
+            for item in parsed[:3]:
+                name = item.get("company_name", "")
+                if not name:
+                    continue
+                desc = item.get("description", "")
+                if len(desc) > 200:
+                    desc = desc[:197] + "..."
+                
+                analogues.append(Analogue(
+                    company_name=name,
+                    description=desc,
+                    annual_revenue=item.get("annual_revenue"),
+                    investment_round=item.get("investment_round"),
+                    has_ru_competitor=item.get("has_ru_competitor"),
+                ))
+            
+            return analogues
+        except Exception as e:
+            logger.warning(f"LLM extraction of analogues failed for '{idea_name}': {e}")
+            return []
