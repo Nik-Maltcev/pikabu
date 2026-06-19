@@ -77,8 +77,8 @@ class Settings(BaseSettings):
     linkup_api_key: str = ""  # Linkup API key for competitor search
 
     # Enrichment timeouts
-    enrichment_total_timeout: float = 30.0  # Total budget for all enrichment
-    enrichment_per_source_timeout: float = 10.0  # Per-source request timeout
+    enrichment_total_timeout: float = 90.0  # Total budget for all enrichment (LLM extraction is slow)
+    enrichment_per_source_timeout: float = 30.0  # Per-source timeout (includes Linkup API + LLM call)
 
     @property
     def cors_origins_list(self) -> list[str]:

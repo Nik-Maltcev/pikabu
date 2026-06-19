@@ -32,7 +32,8 @@ class CompetitorLookupService:
         timeout: float | None = None,
     ):
         self.api_key = api_key or settings.linkup_api_key
-        self.timeout = timeout if timeout is not None else settings.enrichment_per_source_timeout
+        # HTTP timeout is for Linkup API call only (LLM has its own timeout)
+        self.timeout = min(timeout or settings.enrichment_per_source_timeout, 15.0)
 
     async def find_analogues(
         self,
@@ -68,27 +69,35 @@ class CompetitorLookupService:
                     for idea in ideas
                 ]
                 await asyncio.gather(*tasks, return_exceptions=True)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             logger.warning(
                 f"Competitor lookup total timeout ({total_timeout}s) exceeded, "
                 f"some ideas may not have analogues"
             )
+        except Exception as e:
+            logger.error(f"Competitor lookup unexpected error: {e}", exc_info=True)
 
         return ideas
 
     async def _enrich_idea(self, idea: BusinessIdea) -> None:
         """Search for analogues for a single idea and populate its analogues list."""
         try:
+            logger.info(f"Competitor lookup starting for '{idea.name}'")
             analogues = await self._search_competitors(idea.name, idea.description)
             idea.analogues = analogues
+            logger.info(f"Competitor lookup for '{idea.name}': found {len(analogues)} analogues")
         except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
             logger.warning(
                 f"Competitor lookup failed for '{idea.name}': {type(e).__name__}: {e}"
             )
             idea.analogues = []
+        except asyncio.TimeoutError:
+            logger.warning(f"Competitor lookup timed out for '{idea.name}'")
+            idea.analogues = []
         except Exception as e:
             logger.error(
-                f"Unexpected error during competitor lookup for '{idea.name}': {e}"
+                f"Unexpected error during competitor lookup for '{idea.name}': {e}",
+                exc_info=True
             )
             idea.analogues = []
 
@@ -151,38 +160,30 @@ class CompetitorLookupService:
     async def _extract_analogues_via_llm(
         self, search_data: dict, idea_name: str, description: str
     ) -> list[Analogue]:
-        """Extract structured company analogues from raw search results using LLM."""
+        """Extract structured company analogues using LLM with search results as context."""
         import json
         from app.services.analyzer import AnalyzerService
 
         results = search_data.get("results", [])
-        if not results:
-            return []
 
-        # Build context from search results
+        # Build context from search results (may be empty — LLM will use its own knowledge)
         context_parts = []
         for i, result in enumerate(results[:5], 1):
             title = result.get("name", "") or result.get("title", "")
             content = result.get("content", "") or result.get("snippet", "")
-            url = result.get("url", "")
-            context_parts.append(f"{i}. {title}\n{content[:300]}\nURL: {url}")
+            context_parts.append(f"{i}. {title}: {content[:200]}")
 
-        search_context = "\n\n".join(context_parts)
+        search_context = "\n".join(context_parts) if context_parts else "Нет результатов поиска."
 
-        prompt = f"""На основе результатов поиска ниже, найди 1-3 КОНКРЕТНЫЕ компании или стартапы, которые являются аналогами бизнес-идеи "{idea_name}" ({description}).
+        prompt = f"""Назови 2-3 РЕАЛЬНЫЕ компании или стартапы, которые работают в той же нише что бизнес-идея "{idea_name}" ({description}).
 
-Результаты поиска:
+Контекст из поиска (используй как подсказку):
 {search_context}
 
-Для каждой компании укажи:
-- company_name: точное название компании
-- description: что делает (1-2 предложения, до 150 символов)
-- annual_revenue: годовая выручка если известна (строка, например "500 млн ₽" или null)
-- investment_round: раунд инвестиций если известен (например "Series A, $10M" или null)
-- has_ru_competitor: есть ли этот бизнес в России (true/false/null)
+ВАЖНО: Назови РЕАЛЬНЫЕ существующие компании. Используй свои знания + контекст выше.
 
-Ответь ТОЛЬКО валидным JSON массивом. Если конкретных компаний не нашлось — верни [].
-Не выдумывай данные, указывай только то, что есть в результатах.
+Ответь СТРОГО в формате JSON массива (без markdown, без пояснений):
+[{{"company_name":"Название","description":"Что делает, 1 предложение","annual_revenue":"выручка или null","investment_round":"раунд или null","has_ru_competitor":true}}]
 
 JSON:"""
 
@@ -190,10 +191,24 @@ JSON:"""
             analyzer = AnalyzerService()
             response_text = await analyzer._call_llm(prompt, max_tokens=1000)
             
-            # Parse JSON response
+            # Parse JSON response — handle various LLM output formats
             response_text = response_text.strip()
+            
+            # Remove markdown code fences if present
             if response_text.startswith("```"):
-                response_text = response_text.split("\n", 1)[1].rsplit("```", 1)[0]
+                response_text = response_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            
+            # Try to find JSON array in response (LLM may add text around it)
+            if not response_text.startswith("["):
+                start = response_text.find("[")
+                if start != -1:
+                    end = response_text.rfind("]")
+                    if end > start:
+                        response_text = response_text[start:end+1]
+            
+            if not response_text or response_text == "[]":
+                logger.info(f"LLM returned empty analogues for '{idea_name}'")
+                return []
             
             parsed = json.loads(response_text)
             if not isinstance(parsed, list):
@@ -216,7 +231,11 @@ JSON:"""
                     has_ru_competitor=item.get("has_ru_competitor"),
                 ))
             
+            logger.info(f"LLM extracted {len(analogues)} analogues for '{idea_name}'")
             return analogues
+        except json.JSONDecodeError as e:
+            logger.warning(f"LLM returned invalid JSON for analogues '{idea_name}': {e}, response: {response_text[:100]}")
+            return []
         except Exception as e:
             logger.warning(f"LLM extraction of analogues failed for '{idea_name}': {e}")
             return []
