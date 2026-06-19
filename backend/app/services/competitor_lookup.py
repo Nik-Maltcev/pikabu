@@ -115,7 +115,7 @@ class CompetitorLookupService:
         Returns:
             List of 0-3 Analogue objects found.
         """
-        query = f"российские стартапы и компании аналоги: {idea_name}. {description}. выручка, инвестиции, раунды"
+        query = f"{idea_name} стартап компания конкуренты выручка инвестиции"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
@@ -168,22 +168,26 @@ class CompetitorLookupService:
 
         # Build context from search results (may be empty — LLM will use its own knowledge)
         context_parts = []
-        for i, result in enumerate(results[:5], 1):
+        for i, result in enumerate(results[:7], 1):
             title = result.get("name", "") or result.get("title", "")
             content = result.get("content", "") or result.get("snippet", "")
-            context_parts.append(f"{i}. {title}: {content[:200]}")
+            context_parts.append(f"{i}. {title}: {content[:300]}")
 
         search_context = "\n".join(context_parts) if context_parts else "Нет результатов поиска."
 
-        prompt = f"""Назови 2-3 РЕАЛЬНЫЕ компании или стартапы, которые работают в той же нише что бизнес-идея "{idea_name}" ({description}).
+        prompt = f"""Из результатов поиска ниже извлеки ТОЛЬКО те компании/стартапы, которые ЯВНО УПОМИНАЮТСЯ в тексте и работают в нише "{idea_name}" ({description}).
 
-Контекст из поиска (используй как подсказку):
+Результаты поиска:
 {search_context}
 
-ВАЖНО: Назови РЕАЛЬНЫЕ существующие компании. Используй свои знания + контекст выше.
+СТРОГИЕ ПРАВИЛА:
+- Называй ТОЛЬКО компании, которые ПРЯМО УПОМЯНУТЫ в тексте выше
+- НЕ ПРИДУМЫВАЙ компании из своих знаний
+- Если в тексте нет конкретных названий компаний — верни пустой массив []
+- Для выручки и раундов указывай ТОЛЬКО то, что написано в тексте (иначе null)
 
-Ответь СТРОГО в формате JSON массива (без markdown, без пояснений):
-[{{"company_name":"Название","description":"Что делает, 1 предложение","annual_revenue":"выручка или null","investment_round":"раунд или null","has_ru_competitor":true}}]
+Формат ответа — ТОЛЬКО JSON массив, без пояснений:
+[{{"company_name":"Название из текста","description":"Что делает (из текста)","annual_revenue":"из текста или null","investment_round":"из текста или null","has_ru_competitor":true}}]
 
 JSON:"""
 
