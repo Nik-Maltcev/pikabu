@@ -16,6 +16,10 @@ frontend/dist/
 # Environment
 .env
 backend/.env
+deploy/.env
+
+# Dumps
+*.dump
 
 # IDE
 .vscode/
@@ -34,3 +38,6 @@ backend/alembic/versions/__pycache__/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Hypothesis
+.hypothesis/
