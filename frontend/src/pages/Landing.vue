@@ -137,11 +137,11 @@ function goToApp() {
         </div>
       </section>
 
-      <!-- Why BizMap vs ChatGPT -->
+      <!-- Why BizMap -->
       <section class="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24">
         <div class="text-center mb-10 md:mb-14">
-          <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-3">Почему BizMap, а не ChatGPT?</h2>
-          <p class="text-[#45464d] max-w-2xl mx-auto">Мы парсим реальные обсуждения живых людей с Пикабу и VC.ru. ChatGPT работает с маркетинговыми статьями и фантазирует.</p>
+          <h2 class="text-2xl md:text-3xl font-semibold tracking-tight mb-3">Почему BizMap, а не нейросети?</h2>
+          <p class="text-[#45464d] max-w-2xl mx-auto">Мы парсим реальные обсуждения живых людей с русскоязычных форумов. Нейросети работают с маркетинговыми статьями и фантазируют.</p>
         </div>
 
         <!-- Comparison Table -->
@@ -151,7 +151,7 @@ function goToApp() {
               <tr class="bg-[#f6f3f5]">
                 <th class="p-3 md:p-4 font-semibold text-[#1b1b1d]">Возможность</th>
                 <th class="p-3 md:p-4 font-semibold text-[#006a62] text-center">BizMap</th>
-                <th class="p-3 md:p-4 font-semibold text-[#6b7280] text-center">ChatGPT</th>
+                <th class="p-3 md:p-4 font-semibold text-[#6b7280] text-center">Нейросети</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#e5e5e5]">
@@ -204,7 +204,7 @@ function goToApp() {
           <span class="material-symbols-outlined text-[#006a62] text-3xl shrink-0 mt-0.5">database</span>
           <div>
             <h4 class="font-semibold text-[#1b1b1d] mb-1">Данные от живых людей, а не из интернет-статей</h4>
-            <p class="text-sm text-[#45464d] leading-relaxed">BizMap парсит тысячи постов и комментариев с Пикабу и VC.ru — это реальные жалобы, вопросы и потребности аудитории. ChatGPT генерирует ответы из обучающих данных, которые часто устаревшие и лишены контекста.</p>
+            <p class="text-sm text-[#45464d] leading-relaxed">BizMap анализирует тысячи постов и комментариев с русскоязычных форумов — это реальные жалобы, вопросы и потребности аудитории. Нейросети генерируют ответы из обучающих данных, которые часто устаревшие и лишены контекста.</p>
           </div>
         </div>
       </section>
